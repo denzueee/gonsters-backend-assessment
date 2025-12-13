@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # Aplikasi Backend (Menggunakan Image hasil build CI/CD)
+  app:
+    image: ghcr.io/username/gonsters-be-assessment:latest
+    container_name: gonsters-backend
+    restart: always
+    environment:
+      # Flask Config
+      - FLASK_APP=app
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - JWT_ACCESS_TOKEN_EXPIRES=${JWT_ACCESS_TOKEN_EXPIRES:-3600}
+      - JWT_REFRESH_TOKEN_EXPIRES=${JWT_REFRESH_TOKEN_EXPIRES:-2592000}
+
+      # Database Config
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+      # InfluxDB Config
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-gonsters}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-sensor_data}
+      - INFLUXDB_RETENTION_WEEKS=${INFLUXDB_RETENTION_WEEKS:-52}
+
+      # Redis Config
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+
+      # MQTT Config
+      - MQTT_BROKER=${MQTT_BROKER:-mosquitto}
+      - MQTT_PORT=${MQTT_PORT:-1883}
+      - MQTT_USERNAME=${MQTT_USERNAME}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
+      - MQTT_TOPIC=${MQTT_TOPIC}
+      - MQTT_CLIENT_ID=${MQTT_CLIENT_ID}
+      - MQTT_QOS=${MQTT_QOS:-1}
+
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+      - influxdb
+      - redis
+      - mosquitto
+    networks:
+      - gonsters_net
+
+  # Database Services
+  postgres:
+    image: postgres:15-alpine
+    container_name: gonsters-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - gonsters_net
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: gonsters-influxdb-prod
+    restart: always
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${DOCKER_INFLUXDB_INIT_USERNAME}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${DOCKER_INFLUXDB_INIT_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${DOCKER_INFLUXDB_INIT_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${DOCKER_INFLUXDB_INIT_BUCKET}
+      DOCKER_INFLUXDB_INIT_RETENTION: ${INFLUXDB_RETENTION_WEEKS:-52}w
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${DOCKER_INFLUXDB_INIT_ADMIN_TOKEN}
+    volumes:
+      - influxdb_prod_data:/var/lib/influxdb2
+      - influxdb_prod_config:/etc/influxdb2
+    networks:
+      - gonsters_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: gonsters-redis-prod
+    restart: always
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - gonsters_net
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: gonsters-mosquitto-prod
+    restart: always
+    ports:
+      - "1883:1883"
+    volumes:
+      # Mount config file from host
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_prod_data:/mosquitto/data
+    networks:
+      - gonsters_net
+
+volumes:
+  postgres_prod_data:
+  influxdb_prod_data:
+  influxdb_prod_config:
+  redis_prod_data:
+  mosquitto_prod_data:
+
+
+networks:
+  gonsters_net:
+    driver: bridge
