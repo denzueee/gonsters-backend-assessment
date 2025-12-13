@@ -2630,7 +2630,7 @@ jobs:
 
 **Why Critical:**
 - Ensures code quality standards (linting, formatting)
-- Validates all tests pass with 70%+ coverage threshold
+- Validates all tests pass with 75%+ coverage threshold
 - Catches bugs before deployment
 - Automated code review
 
