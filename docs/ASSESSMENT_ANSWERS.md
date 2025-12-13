@@ -717,59 +717,124 @@ Authorization: Bearer {token}
 ```python
 from flask import Blueprint, request, jsonify
 from datetime import datetime
-from app.database import get_db, write_sensor_data
-from app.models import MachineMetadata
+from pydantic import ValidationError
+from uuid import UUID
 import logging
+import json
+from app.database import get_db, write_sensor_data, query_sensor_data, get_redis_client
+from app.models import MachineMetadata
+from app.schemas import IngestRequest, CreateMachineRequest
+from app.auth.middleware import require_auth, require_permission
+from app.utils import cache_response, invalidate_cache
 
-bp = Blueprint('data', __name__, url_prefix='/api/v1/data')
+bp = Blueprint("data", __name__, url_prefix="/api/v1/data")
 logger = logging.getLogger(__name__)
 
 
-@bp.route('/ingest', methods=['POST'])
+def get_cached_machine_metadata(db, machine_id):
+    """
+    Mengambil metadata mesin dengan Cache-Aside pattern (Redis + DB)
+    """
+    redis_client = get_redis_client()
+    cache_key = f"machine_metadata:{machine_id}"
+
+    # Coba ambil dari cache
+    if redis_client:
+        try:
+            cached_data = redis_client.get(cache_key)
+            if cached_data:
+                data = json.loads(cached_data)
+                # Rekonstruksi objek dari dictionary untuk penggunaan sederhana
+                machine = MachineMetadata.from_dict(data)
+                machine.id = UUID(data["id"])
+                machine.created_at = datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
+                machine.updated_at = datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None
+                return machine
+        except Exception as e:
+            logger.warning(f"Gagal membaca cache Redis: {e}")
+
+    # Ambil dari Database
+    machine = db.query(MachineMetadata).filter(MachineMetadata.id == machine_id).first()
+
+    # Simpan ke cache
+    if machine and redis_client:
+        try:
+            redis_client.set(cache_key, json.dumps(machine.to_dict()), ex=3600)  # Expire 1 jam
+        except Exception as e:
+            logger.warning(f"Gagal menulis cache Redis: {e}")
+
+    return machine
+
+
+@bp.route("/ingest", methods=["POST"])
 @require_auth
-@require_permission('write:sensor_data')
-def ingest_data():
+@require_permission("write:sensor_data")
+def ingest_data():  # noqa: C901
     """
     POST /api/v1/data/ingest
+
     Ingest data sensor secara batch dari industrial gateways.
+
+    Request Body:
+        {
+            "gateway_id": "gateway-001",
+            "timestamp": "2025-12-13T03:38:52Z",
+            "batch": [
+                {
+                    "machine_id": "uuid",
+                    "sensor_type": "Temperature",
+                    "location": "Floor 1",
+                    "readings": [
+                        {
+                            "timestamp": "2025-12-13T03:38:50Z",
+                            "temperature": 72.5,
+                            "pressure": 101.3,
+                            "speed": 1450.0
+                        }
+                    ]
+                }
+            ]
+        }
+
+    Returns:
+        201: Batch ingestion berhasil
+        207: Partial success (beberapa gagal)
+        400: Error validasi
+        500: Server error
     """
+
     try:
         # Validasi request body
         try:
             data = request.get_json(force=False, silent=False)
             if data is None:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Request body is required'
-                }), 400
-            
+                return jsonify({"status": "error", "message": "Request body is required"}), 400
+
             # Validasi struktur data
             ingest_request = IngestRequest(**data)
-            
+
         except ValidationError as e:
             errors = []
             for error in e.errors():
-                errors.append({
-                    'field': '.'.join(str(loc) for loc in error['loc']),
-                    'error': error['msg'],
-                    'value': str(error.get('input', ''))
-                })
-            
-            return jsonify({
-                'status': 'error',
-                'message': 'Validation failed',
-                'errors': errors
-            }), 400
-        
+                errors.append(
+                    {
+                        "field": ".".join(str(loc) for loc in error["loc"]),
+                        "error": error["msg"],
+                        "value": str(error.get("input", "")),
+                    }
+                )
+
+            return jsonify({"status": "error", "message": "Validation failed", "errors": errors}), 400
+
         # Proses batch data
         gateway_id = ingest_request.gateway_id
         batch = ingest_request.batch
-        
+
         total_machines = len(batch)
         total_readings = 0
         errors = []
         details = []
-        
+
         with get_db() as db:
             for idx, machine_data in enumerate(batch):
                 try:
@@ -777,23 +842,21 @@ def ingest_data():
                     sensor_type = machine_data.sensor_type
                     location = machine_data.location
                     readings = machine_data.readings
-                    
+
                     # Validasi keberadaan mesin (Cache & DB)
                     machine = get_cached_machine_metadata(db, machine_data.machine_id)
-                    
+
                     if not machine:
-                        errors.append({
-                            'field': f'batch[{idx}].machine_id',
-                            'error': 'Machine ID not found in database',
-                            'value': machine_id
-                        })
-                        details.append({
-                            'machine_id': machine_id,
-                            'readings_count': 0,
-                            'status': 'failed'
-                        })
+                        errors.append(
+                            {
+                                "field": f"batch[{idx}].machine_id",
+                                "error": "Machine ID not found in database",
+                                "value": machine_id,
+                            }
+                        )
+                        details.append({"machine_id": machine_id, "readings_count": 0, "status": "failed"})
                         continue
-                    
+
                     # Tulis setiap pembacaan ke InfluxDB
                     readings_written = 0
                     for reading in readings:
@@ -806,225 +869,96 @@ def ingest_data():
                                 temperature=reading.temperature,
                                 pressure=reading.pressure,
                                 speed=reading.speed,
-                                timestamp=reading.timestamp
+                                timestamp=reading.timestamp,
                             )
-                            
-                            if success:
-                                readings_written += 1
-                                total_readings += 1
-                        except Exception:
-                            pass
-                    
-                    details.append({
-                        'machine_id': machine_id,
-                        'readings_count': readings_written,
-                        'status': 'success' if readings_written > 0 else 'failed'
-                    })
-                
-                except Exception as e:
-                    errors.append({
-                        'field': f'batch[{idx}]',
-                        'error': str(e),
-                        'value': None
-                    })
-        
-        # Kirim respons
-        if errors and total_readings == 0:
-            return jsonify({
-                'status': 'error',
-                'message': 'Batch ingestion failed',
-                'errors': errors
-            }), 400
-        
-        elif errors or total_readings < len(batch):
-            return jsonify({
-                'status': 'partial_success',
-                'message': 'Batch ingestion completed with errors',
-                'summary': {
-                    'total_machines': total_machines,
-                    'total_readings': total_readings,
-                    'processed_at': datetime.utcnow().isoformat() + 'Z',
-                    'gateway_id': gateway_id
-                },
-                'details': details,
-                'errors': errors
-            }), 207
-        
-        else:
-            return jsonify({
-                'status': 'success',
-                'message': 'Batch ingestion completed',
-                'summary': {
-                    'total_machines': total_machines,
-                    'total_readings': total_readings,
-                    'processed_at': datetime.utcnow().isoformat() + 'Z',
-                    'gateway_id': gateway_id
-                },
-                'details': details
-            }), 201
-    
-    except Exception as e:
-        logger.error(f"Unexpected error in ingest_data: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Internal server error',
-            'error': str(e)
-        }), 500
-                return jsonify({
-                    'status': 'error',
-                    'message': f'Missing required field: {field}'
-                }), 400
-        
-        # Validate batch is not empty
-        if not data['batch'] or len(data['batch']) == 0:
-            return jsonify({
-                'status': 'error',
-                'message': 'Batch cannot be empty'
-            }), 400
-        
-        # 2. Process batch
-        gateway_id = data['gateway_id']
-        batch = data['batch']
-        
-        total_machines = len(batch)
-        total_readings = 0
-        errors = []
-        details = []
-        
-        with get_db() as db:
-            for idx, machine_data in enumerate(batch):
-                try:
-                    # Validate machine data structure
-                    if 'machine_id' not in machine_data:
-                        errors.append({
-                            'field': f'batch[{idx}].machine_id',
-                            'error': 'Missing required field',
-                            'value': None
-                        })
-                        continue
-                    
-                    machine_id = machine_data['machine_id']
-                    sensor_type = machine_data.get('sensor_type')
-                    location = machine_data.get('location')
-                    readings = machine_data.get('readings', [])
-                    
-                    # 3. Validate machine exists in PostgreSQL
-                    machine = db.query(MachineMetadata).filter(
-                        MachineMetadata.id == machine_id
-                    ).first()
-                    
-                    if not machine:
-                        errors.append({
-                            'field': f'batch[{idx}].machine_id',
-                            'error': 'Machine ID not found in database',
-                            'value': machine_id
-                        })
-                        continue
-                    
-                    # 4. Validate readings
-                    if not readings or len(readings) == 0:
-                        errors.append({
-                            'field': f'batch[{idx}].readings',
-                            'error': 'Readings array cannot be empty',
-                            'value': None
-                        })
-                        continue
-                    
-                    # 5. Write each reading to InfluxDB
-                    readings_written = 0
-                    for reading_idx, reading in enumerate(readings):
-                        try:
-                            # Validate timestamp
-                            timestamp_str = reading.get('timestamp')
-                            if not timestamp_str:
-                                errors.append({
-                                    'field': f'batch[{idx}].readings[{reading_idx}].timestamp',
-                                    'error': 'Missing timestamp',
-                                    'value': None
-                                })
-                                continue
-                            
-                            # Parse timestamp
-                            try:
-                                timestamp = datetime.fromisoformat(
-                                    timestamp_str.replace('Z', '+00:00')
-                                )
-                            except ValueError:
-                                errors.append({
-                                    'field': f'batch[{idx}].readings[{reading_idx}].timestamp',
-                                    'error': 'Invalid ISO 8601 format',
-                                    'value': timestamp_str
-                                })
-                                continue
-                            
-                            # Extract sensor values
-                            temperature = reading.get('temperature')
-                            pressure = reading.get('pressure')
-                            speed = reading.get('speed')
-                            
-                            # At least one field must be present
-                            if temperature is None and pressure is None and speed is None:
-                                errors.append({
-                                    'field': f'batch[{idx}].readings[{reading_idx}]',
-                                    'error': 'At least one sensor value required',
-                                    'value': reading
-                                })
-                                continue
-                            
-                            
-                            # 6. Write to InfluxDB
-                            success = write_sensor_data(
-                                machine_id=str(machine_id),
-                                sensor_type=sensor_type or machine.sensor_type,
-                                location=location or machine.location,
-                                temperature=temperature,
-                                pressure=pressure,
-                                speed=speed,
-                                timestamp=timestamp
-                            )
-                            
-                            if success:
-                                readings_written += 1
-                                total_readings += 1
 
-                    # Add detailed result
-                    details.append({
-                        'machine_id': machine_id,
-                        'readings_count': readings_written,
-                        'status': 'success' if readings_written > 0 else 'failed'
-                    })
-                
+                            if success:
+                                readings_written += 1
+                                total_readings += 1
+                            else:
+                                logger.error(f"Failed to write reading for machine {machine_id}")
+
+                        except Exception as e:
+                            logger.error(f"Error writing reading for machine {machine_id}: {str(e)}")
+
+                    # Tambahkan detail hasil
+                    details.append(
+                        {
+                            "machine_id": machine_id,
+                            "readings_count": readings_written,
+                            "status": "success" if readings_written > 0 else "failed",
+                        }
+                    )
+
                 except Exception as e:
                     logger.error(f"Error processing machine data at index {idx}: {str(e)}")
-                    errors.append({
-                        'field': f'batch[{idx}]',
-                        'error': str(e),
-                        'value': None
-                    })
-        
-        # Determine strict response code
+                    errors.append({"field": f"batch[{idx}]", "error": str(e), "value": None})
+
+        # Kirim respons
         if errors and total_readings == 0:
-            return jsonify({'status': 'error', 'message': 'Batch ingestion failed', 'errors': errors}), 400
-        
+            # All failed
+            return jsonify({"status": "error", "message": "Batch ingestion failed", "errors": errors}), 400
+
         elif errors or total_readings < len(batch):
-            return jsonify({
-                'status': 'partial_success',
-                'message': 'Batch ingestion completed with errors',
-                'details': details,
-                'errors': errors
-            }), 207
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'Batch ingestion completed',
-            'details': details
-        }), 201
+            # Partial success or silent failures (readings_written=0 but no validation errors)
+            if not errors and total_readings == 0:
+                return (
+                    jsonify(
+                        {
+                            "status": "error",
+                            "message": "Batch ingestion failed - No readings could be written to database",
+                            "details": details,
+                        }
+                    ),
+                    500,
+                )
+
+            return (
+                jsonify(
+                    {
+                        "status": "partial_success",
+                        "message": "Batch ingestion completed with errors",
+                        "summary": {
+                            "total_machines": total_machines,
+                            "total_readings": total_readings,
+                            "processed_at": datetime.utcnow().isoformat() + "Z",
+                            "gateway_id": gateway_id,
+                        },
+                        "details": details,
+                        "errors": errors,
+                    }
+                ),
+                207,
+            )  # Multi-Status
+
+        else:
+            # Berhasil total
+            return (
+                jsonify(
+                    {
+                        "status": "success",
+                        "message": "Batch ingestion completed",
+                        "summary": {
+                            "total_machines": total_machines,
+                            "total_readings": total_readings,
+                            "processed_at": datetime.utcnow().isoformat() + "Z",
+                            "gateway_id": gateway_id,
+                        },
+                        "details": details,
+                    }
+                ),
+                201,
+            )
 
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+        # Handle BadRequest (400) from Flask before falling back to 500
+        from werkzeug.exceptions import BadRequest
 
+        if isinstance(e, BadRequest):
+            return jsonify({"status": "error", "message": "Invalid request format"}), 400
 
+        logger.error(f"Unexpected error in ingest_data: {str(e)}")
+        return jsonify({"status": "error", "message": "Internal server error", "error": str(e)}), 500
 ```
 
 ### Key Implementation Features
@@ -1201,314 +1135,228 @@ The implementation is production-ready and follows best practices for industrial
 > - [MQTT Essentials - Packet Structure](https://www.hivemq.com/blog/mqtt-essentials-part2-publish-subscribe/)
 > - [Paho MQTT Python Client](https://eclipse.dev/paho/files/paho.mqtt.python/html/index.html)
 
-#### A. Code Flow - MQTT Subscriber Pseudocode
+#### A. MQTT Subscriber Implementation
 
 ```python
 """
-MQTT Subscriber for Industrial Sensor Data
-Connects to broker and subscribes to factory telemetry topics
+Modul Subscriber MQTT
+Menangani koneksi dan pemrosesan pesan dari broker MQTT
 """
 
-# STEP 1: Import MQTT library
 import paho.mqtt.client as mqtt
 import json
 from datetime import datetime
+import logging
 
-# STEP 2: Define MQTT Configuration
-MQTT_BROKER = "mqtt.factory.local"
-MQTT_PORT = 1883
-MQTT_TOPIC = "factory/A/machine/+/telemetry"
-MQTT_QOS = 1  # At least once delivery
-MQTT_CLIENT_ID = "backend-service-001"
+from app.config import get_config
+from app.database import get_db, write_sensor_data
+from app.models import MachineMetadata
 
-# STEP 3: Define Callback Functions
-
-def on_connect(client, userdata, flags, rc):
-    """
-    Callback when client connects to broker
-    
-    Args:
-        client: MQTT client instance
-        userdata: User-defined data
-        flags: Response flags from broker
-        rc: Connection result code
-    """
-    if rc == 0:
-        print(f" Connected to MQTT broker successfully")
-        
-        # STEP 3a: Subscribe to topic after successful connection
-        client.subscribe(MQTT_TOPIC, qos=MQTT_QOS)
-        print(f" Subscribed to topic: {MQTT_TOPIC}")
-        
-    else:
-        print(f" Connection failed with code: {rc}")
-        # Error codes:
-        # 1: Incorrect protocol version
-        # 2: Invalid client identifier
-        # 3: Server unavailable
-        # 4: Bad username or password
-        # 5: Not authorized
+logger = logging.getLogger(__name__)
+config = get_config()
 
 
-def on_subscribe(client, userdata, mid, granted_qos):
-    """
-    Callback when subscription is acknowledged
-    
-    Args:
-        client: MQTT client instance
-        userdata: User-defined data
-        mid: Message ID
-        granted_qos: QoS levels granted by broker
-    """
-    print(f" Subscription confirmed with QoS: {granted_qos}")
+class MQTTSubscriber:
+    """Implementasi MQTT Subscriber untuk penerimaan data sensor"""
 
+    def __init__(self):
+        self.client = None
+        self.is_connected = False
+        self.message_count = 0
 
-def on_message(client, userdata, msg):
-    """
-    Callback when message is received
-    This is the main message handler
-    
-    Args:
-        client: MQTT client instance
-        userdata: User-defined data
-        msg: MQTT message object (topic, payload, qos, retain)
-    """
-    try:
-        # STEP 4a: Extract topic and payload
-        topic = msg.topic
-        payload = msg.payload.decode('utf-8')
-        
-        print(f" Received message on topic: {topic}")
-        
-        # STEP 4b: Parse topic to extract machine ID
-        # Topic format: factory/A/machine/{machine_id}/telemetry
-        topic_parts = topic.split('/')
-        if len(topic_parts) == 5:
-            factory_id = topic_parts[1]
-            machine_id = topic_parts[3]
+    def on_connect(self, client, userdata, flags, rc):
+        """Callback saat terhubung ke broker"""
+        if rc == 0:
+            logger.info("Connected to MQTT broker successfully")
+            self.is_connected = True
+
+            # Subscribe ke topic
+            client.subscribe(config.MQTT_TOPIC, qos=config.MQTT_QOS)
+            logger.info(f"Subscribed to topic: {config.MQTT_TOPIC}")
         else:
-            print(f" Invalid topic format: {topic}")
-            return
-        
-        # STEP 4c: Parse JSON payload
+            logger.error(f"Connection failed with code: {rc}")
+            self.is_connected = False
+
+    def on_subscribe(self, client, userdata, mid, granted_qos):
+        """Callback saat subscription dikonfirmasi"""
+        logger.info(f"Subscription confirmed with QoS: {granted_qos}")
+
+    def on_message(self, client, userdata, msg):  # noqa: C901
+        """Callback saat menerima pesan baru"""
         try:
-            data = json.loads(payload)
-        except json.JSONDecodeError as e:
-            print(f" Invalid JSON payload: {e}")
-            return
-        
-        # STEP 4d: Validate payload structure
-        required_fields = ['timestamp', 'sensor_type']
-        for field in required_fields:
-            if field not in data:
-                print(f" Missing required field: {field}")
+            topic = msg.topic
+            payload = msg.payload.decode("utf-8")
+
+            logger.debug(f"Received message on topic: {topic}")
+
+            # Parse topic untuk mendapatkan machine ID
+            # Format: factory/{factory_id}/machine/{machine_id}/telemetry
+            topic_parts = topic.split("/")
+
+            if len(topic_parts) != 5:
+                logger.warning(f"Invalid topic format: {topic}")
                 return
-        
-        # STEP 4e: Extract sensor data
-        timestamp = data.get('timestamp')
-        sensor_type = data.get('sensor_type')
-        temperature = data.get('temperature')
-        pressure = data.get('pressure')
-        speed = data.get('speed')
-        
-        # STEP 4f: Validate at least one sensor value exists
-        if temperature is None and pressure is None and speed is None:
-            print(f" No sensor values in payload")
-            return
-        
-        # STEP 4g: Validate machine exists in database
-        if not validate_machine_exists(machine_id):
-            print(f" Machine {machine_id} not found in database")
-            return
-        
-        # STEP 4h: Write to InfluxDB
-        success = write_to_influxdb(
-            machine_id=machine_id,
-            sensor_type=sensor_type,
-            temperature=temperature,
-            pressure=pressure,
-            speed=speed,
-            timestamp=timestamp
+
+            machine_id = topic_parts[3]
+
+            # Parse JSON
+            try:
+                data = json.loads(payload)
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON payload: {e}")
+                return
+
+            # Validasi field yang wajib ada
+            required_fields = ["timestamp", "sensor_type"]
+            for field in required_fields:
+                if field not in data:
+                    logger.error(f"Missing required field: {field}")
+                    return
+
+            # Ambil data sensor
+            timestamp_str = data.get("timestamp")
+            sensor_type = data.get("sensor_type")
+            temperature = data.get("temperature")
+            pressure = data.get("pressure")
+            speed = data.get("speed")
+
+            # Minimal harus ada 1 nilai sensor
+            if temperature is None and pressure is None and speed is None:
+                logger.error("No sensor values in payload")
+                return
+
+            # Parse timestamp
+            try:
+                timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+            except ValueError:
+                logger.error(f"Invalid timestamp format: {timestamp_str}")
+                return
+
+            # Cek apakah machine ada di database
+            with get_db() as db:
+                machine = db.query(MachineMetadata).filter(MachineMetadata.id == machine_id).first()
+
+                if not machine:
+                    logger.error(f"Machine {machine_id} not found in database")
+                    return
+
+                location = machine.location
+
+            # Simpan ke InfluxDB
+            success = write_sensor_data(
+                machine_id=machine_id,
+                sensor_type=sensor_type,
+                location=location,
+                temperature=temperature,
+                pressure=pressure,
+                speed=speed,
+                timestamp=timestamp,
+            )
+
+            if success:
+                self.message_count += 1
+                logger.info(
+                    f"Data stored successfully for machine {machine_id} " f"(total messages: {self.message_count})"
+                )
+            else:
+                logger.error(f"Failed to store data for machine {machine_id}")
+
+        except Exception as e:
+            logger.error(f"Error processing message: {str(e)}")
+
+    def on_disconnect(self, client, userdata, rc):
+        """Callback saat koneksi terputus"""
+        self.is_connected = False
+        if rc != 0:
+            logger.warning(f"Unexpected disconnection. Code: {rc}")
+            logger.info("Attempting to reconnect...")
+
+    def start(self):
+        """Mulai MQTT subscriber"""
+        logger.info("Starting MQTT subscriber...")
+
+        # Buat client instance
+        self.client = mqtt.Client(client_id=config.MQTT_CLIENT_ID, clean_session=True, protocol=mqtt.MQTTv311)
+
+        # Set auth jika ada
+        if config.MQTT_USERNAME and config.MQTT_PASSWORD:
+            self.client.username_pw_set(username=config.MQTT_USERNAME, password=config.MQTT_PASSWORD)
+
+        # Tetapkan callback
+        self.client.on_connect = self.on_connect
+        self.client.on_subscribe = self.on_subscribe
+        self.client.on_message = self.on_message
+        self.client.on_disconnect = self.on_disconnect
+
+        # Set pesan will (Last Will and Testament)
+        self.client.will_set(
+            topic="factory/backend/status",
+            payload=json.dumps({"status": "offline", "timestamp": datetime.utcnow().isoformat()}),
+            qos=1,
+            retain=True,
         )
-        
-        if success:
-            print(f" Data stored successfully for machine {machine_id}")
-        else:
-            print(f" Failed to store data for machine {machine_id}")
-        
-        # STEP 4i: Optional - Publish to internal event bus for real-time dashboard
-        publish_to_event_bus({
-            'machine_id': machine_id,
-            'factory_id': factory_id,
-            'sensor_type': sensor_type,
-            'data': data,
-            'received_at': datetime.utcnow().isoformat()
-        })
-        
-    except Exception as e:
-        print(f" Error processing message: {str(e)}")
+
+        try:
+            # Connect ke broker
+            logger.info(f"Connecting to broker: {config.MQTT_BROKER}:{config.MQTT_PORT}")
+            self.client.connect(host=config.MQTT_BROKER, port=config.MQTT_PORT, keepalive=60)
+
+            # Start loop di thread terpisah
+            self.client.loop_start()
+            logger.info("MQTT subscriber started successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to start MQTT subscriber: {str(e)}")
+            raise
+
+    def stop(self):
+        """Hentikan MQTT subscriber"""
+        if self.client:
+            logger.info("Stopping MQTT subscriber...")
+            self.client.loop_stop()
+            self.client.disconnect()
+            logger.info("MQTT subscriber stopped")
 
 
-def on_disconnect(client, userdata, rc):
-    """
-    Callback when client disconnects from broker
-    
-    Args:
-        client: MQTT client instance
-        userdata: User-defined data
-        rc: Disconnection result code
-    """
-    if rc != 0:
-        print(f" Unexpected disconnection. Code: {rc}")
-        print("Attempting to reconnect...")
+# Instance global
+_mqtt_subscriber = None
 
 
-# STEP 5: Initialize MQTT Client
+def get_mqtt_subscriber():
+    """Mengambil singleton instance MQTTSubscriber"""
+    global _mqtt_subscriber
+    if _mqtt_subscriber is None:
+        _mqtt_subscriber = MQTTSubscriber()
+    return _mqtt_subscriber
 
-def init_mqtt_client():
-    """
-    Initialize and configure MQTT client
-    
-    Returns:
-        client: Configured MQTT client instance
-    """
-    # Create client instance
-    client = mqtt.Client(
-        client_id=MQTT_CLIENT_ID,
-        clean_session=True,  # Start fresh session
-        protocol=mqtt.MQTTv311  # Use MQTT 3.1.1
-    )
-    
-    # Set authentication (if required)
-    # client.username_pw_set(username="backend-service", password="secure-password")
-    
-    # Set TLS/SSL (for secure connection)
-    # client.tls_set(
-    #     ca_certs="/path/to/ca.crt",
-    #     certfile="/path/to/client.crt",
-    #     keyfile="/path/to/client.key"
-    # )
-    
-    # Assign callbacks
-    client.on_connect = on_connect
-    client.on_subscribe = on_subscribe
-    client.on_message = on_message
-    client.on_disconnect = on_disconnect
-    
-    # Set will message (Last Will and Testament)
-    # Sent by broker if client disconnects unexpectedly
-    client.will_set(
-        topic="factory/A/backend/status",
-        payload=json.dumps({"status": "offline", "timestamp": datetime.utcnow().isoformat()}),
-        qos=1,
-        retain=True
-    )
-    
-    return client
-
-
-# STEP 6: Connect and Start Loop
 
 def start_mqtt_subscriber():
-    """
-    Start MQTT subscriber service
-    """
-    print("Starting MQTT subscriber...")
-    
-    # Initialize client
-    client = init_mqtt_client()
-    
-    try:
-        # Connect to broker
-        print(f"Connecting to broker: {MQTT_BROKER}:{MQTT_PORT}")
-        client.connect(
-            host=MQTT_BROKER,
-            port=MQTT_PORT,
-            keepalive=60  # Send ping every 60 seconds
-        )
-        
-        # Start network loop (blocking)
-        # This will handle reconnection automatically
-        client.loop_forever()
-        
-    except KeyboardInterrupt:
-        print("\nShutting down MQTT subscriber...")
-        client.disconnect()
-        print(" Disconnected gracefully")
-        
-    except Exception as e:
-        print(f" Fatal error: {str(e)}")
-        client.disconnect()
+    """Helper untuk memulai subscriber"""
+    subscriber = get_mqtt_subscriber()
+    subscriber.start()
+    return subscriber
 
 
-# STEP 7: Helper Functions
-
-def validate_machine_exists(machine_id):
-    """
-    Check if machine exists in PostgreSQL database
-    
-    Args:
-        machine_id: Machine UUID
-    
-    Returns:
-        bool: True if machine exists, False otherwise
-    """
-    from app.database import get_db
-    from app.models import MachineMetadata
-    
-    with get_db() as db:
-        machine = db.query(MachineMetadata).filter(
-            MachineMetadata.id == machine_id
-        ).first()
-        return machine is not None
-
-
-def write_to_influxdb(machine_id, sensor_type, temperature, pressure, speed, timestamp):
-    """
-    Write sensor data to InfluxDB
-    
-    Args:
-        machine_id: Machine UUID
-        sensor_type: Sensor type
-        temperature: Temperature value
-        pressure: Pressure value
-        speed: Speed value
-        timestamp: Measurement timestamp
-    
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    from app.database import write_sensor_data
-    
-    return write_sensor_data(
-        machine_id=machine_id,
-        sensor_type=sensor_type,
-        location="",  # Can be enriched from database
-        temperature=temperature,
-        pressure=pressure,
-        speed=speed,
-        timestamp=timestamp
-    )
-
-
-def publish_to_event_bus(event_data):
-    """
-    Publish event to internal event bus for real-time dashboard
-    
-    Args:
-        event_data: Event data dictionary
-    """
-    # This could be Redis Pub/Sub, RabbitMQ, or WebSocket broadcast
-    # For example, using Redis:
-    # redis_client.publish('sensor_updates', json.dumps(event_data))
-    pass
-
-
-# STEP 8: Run as standalone service or integrate with Flask
-
-if __name__ == "__main__":
-    start_mqtt_subscriber()
+def stop_mqtt_subscriber():
+    """Helper untuk menghentikan subscriber"""
+    global _mqtt_subscriber
+    if _mqtt_subscriber:
+        _mqtt_subscriber.stop()
+        _mqtt_subscriber = None
 ```
+
+**Key Implementation Features:**
+
+1. **Class-Based Design**: `MQTTSubscriber` class for better state management
+2. **Singleton Pattern**: Global instance to prevent multiple subscribers
+3. **Configuration-Driven**: Uses `app.config` for broker settings (MQTT_BROKER, MQTT_PORT, MQTT_TOPIC, etc.)
+4. **Proper Logging**: Uses Python logging module instead of print statements
+5. **Database Integration**: Validates machine existence in PostgreSQL before storing
+6. **Error Handling**: Comprehensive try-except blocks with detailed error messages
+7. **Message Tracking**: Counts processed messages for monitoring
+8. **Non-Blocking**: Uses `loop_start()` for background thread operation
+9. **Location Enrichment**: Fetches machine location from database for InfluxDB tags
+10. **Last Will Testament**: Publishes offline status if subscriber crashes
 
 ---
 
