@@ -1,8 +1,9 @@
 # GONSTERS Technical Skill Assessment
 
-**Position**: Back End Developer
-**Candidate**: Yoga Putra Pratama
-**Date**: December 13, 2025
+**Position**: Back End Developer  
+**Candidate**: Yoga Putra Pratama  
+**Date**: December 13, 2025  
+**Repository**: https://github.com/denzueee/gonsters-backend-assessment
 
 ---
 
