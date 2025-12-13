@@ -121,7 +121,7 @@ class TestIngestEndpointE2E:
         data = json.loads(response.data)
         assert data['summary']['total_readings'] == 5
     
-    def test_ingestion_machine_not_found(self, client):
+    def test_ingestion_machine_not_found(self, client, auth_headers):
         """Test ingestion with non-existent machine"""
         fake_uuid = str(uuid4())
         
