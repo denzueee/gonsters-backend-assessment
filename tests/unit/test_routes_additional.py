@@ -10,9 +10,9 @@ import json
 class TestDataRoutesAdditional:
     """Additional data routes tests for coverage"""
     
-    def test_get_machine_data_invalid_machine_id(self, client):
+    def test_get_machine_data_invalid_machine_id(self, client, auth_headers):
         """Test get machine data with invalid UUID"""
-        response = client.get('/api/v1/data/machine/invalid-uuid')
+        response = client.get('/api/v1/data/machine/invalid-uuid', headers=auth_headers)
         
         # Should return error for invalid UUID
         assert response.status_code in [400, 404, 500]

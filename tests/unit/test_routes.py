@@ -37,28 +37,30 @@ class TestHealthEndpoint:
 class TestIngestEndpoint:
     """Unit tests for ingestion endpoint"""
     
-    def test_ingest_missing_body(self, client):
+    def test_ingest_missing_body(self, client, auth_headers):
         """Test ingestion with missing request body"""
         response = client.post(
             '/api/v1/data/ingest',
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         assert response.status_code == 400
         data = json.loads(response.data)
         assert data['status'] == 'error'
     
-    def test_ingest_invalid_json(self, client):
+    def test_ingest_invalid_json(self, client, auth_headers):
         """Test ingestion with invalid JSON"""
         response = client.post(
             '/api/v1/data/ingest',
             data='invalid json',
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         assert response.status_code in [400, 415]
     
-    def test_ingest_missing_required_fields(self, client):
+    def test_ingest_missing_required_fields(self, client, auth_headers):
         """Test ingestion with missing required fields"""
         payload = {
             "gateway_id": "test-gateway"
@@ -68,14 +70,15 @@ class TestIngestEndpoint:
         response = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         assert response.status_code == 400
         data = json.loads(response.data)
         assert 'errors' in data or 'message' in data
     
-    def test_ingest_empty_batch(self, client):
+    def test_ingest_empty_batch(self, client, auth_headers):
         """Test ingestion with empty batch"""
         payload = {
             "gateway_id": "test-gateway",
@@ -86,12 +89,13 @@ class TestIngestEndpoint:
         response = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         assert response.status_code == 400
     
-    def test_ingest_invalid_machine_id(self, client):
+    def test_ingest_invalid_machine_id(self, client, auth_headers):
         """Test ingestion with invalid machine ID"""
         payload = {
             "gateway_id": "test-gateway",
@@ -114,7 +118,8 @@ class TestIngestEndpoint:
         response = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         assert response.status_code == 400

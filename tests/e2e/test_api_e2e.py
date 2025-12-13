@@ -14,7 +14,7 @@ from app.models import MachineMetadata
 class TestIngestEndpointE2E:
     """End-to-end tests for ingestion endpoint"""
     
-    def test_successful_ingestion_single_machine(self, client, sample_machine):
+    def test_successful_ingestion_single_machine(self, client, auth_headers, sample_machine):
         """Test successful ingestion for single machine"""
         payload = {
             "gateway_id": "e2e-gateway-001",
@@ -39,7 +39,8 @@ class TestIngestEndpointE2E:
         response = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         assert response.status_code == 201
@@ -50,7 +51,7 @@ class TestIngestEndpointE2E:
         assert len(data['details']) == 1
         assert data['details'][0]['status'] == 'success'
     
-    def test_successful_ingestion_multiple_machines(self, client, sample_machines):
+    def test_successful_ingestion_multiple_machines(self, client, auth_headers, sample_machines):
         """Test successful ingestion for multiple machines"""
         batch = []
         for machine in sample_machines[:3]:  # Use first 3 machines
@@ -76,7 +77,8 @@ class TestIngestEndpointE2E:
         response = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         assert response.status_code == 201
@@ -85,7 +87,7 @@ class TestIngestEndpointE2E:
         assert data['summary']['total_machines'] == 3
         assert len(data['details']) == 3
     
-    def test_ingestion_with_multiple_readings(self, client, sample_machine):
+    def test_ingestion_with_multiple_readings(self, client, auth_headers, sample_machine):
         """Test ingestion with multiple readings per machine"""
         readings = []
         for i in range(5):
@@ -111,7 +113,8 @@ class TestIngestEndpointE2E:
         response = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         assert response.status_code == 201
@@ -143,7 +146,8 @@ class TestIngestEndpointE2E:
         response = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         assert response.status_code == 400
@@ -151,7 +155,7 @@ class TestIngestEndpointE2E:
         assert data['status'] == 'error'
         assert 'errors' in data
     
-    def test_partial_success_ingestion(self, client, sample_machine):
+    def test_partial_success_ingestion(self, client, auth_headers, sample_machine):
         """Test partial success when some machines fail"""
         fake_uuid = str(uuid4())
         
@@ -187,7 +191,8 @@ class TestIngestEndpointE2E:
         response = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         # Should return 207 Multi-Status for partial success
@@ -200,7 +205,7 @@ class TestIngestEndpointE2E:
 class TestRetrievalEndpointE2E:
     """End-to-end tests for retrieval endpoint"""
     
-    def test_successful_retrieval(self, client, app, sample_machine):
+    def test_successful_retrieval(self, client, auth_headers, app, sample_machine):
         """Test successful data retrieval"""
         # Extract machine ID early to avoid detached instance issues
         machine_id = str(sample_machine.id)
@@ -223,6 +228,7 @@ class TestRetrievalEndpointE2E:
         # Retrieve data
         response = client.get(
             f'/api/v1/data/machine/{machine_id}',
+            headers=auth_headers,
             query_string={
                 'start_time': (datetime.utcnow() - timedelta(hours=1)).isoformat() + 'Z',
                 'end_time': datetime.utcnow().isoformat() + 'Z',
@@ -238,7 +244,7 @@ class TestRetrievalEndpointE2E:
         assert 'data' in data
         assert 'pagination' in data
     
-    def test_retrieval_with_aggregation(self, client, app, sample_machine):
+    def test_retrieval_with_aggregation(self, client, auth_headers, app, sample_machine):
         """Test retrieval with aggregation interval"""
         # Ingest data
         with app.app_context():
@@ -256,6 +262,7 @@ class TestRetrievalEndpointE2E:
         # Retrieve with hourly aggregation
         response = client.get(
             f'/api/v1/data/machine/{sample_machine.id}',
+            headers=auth_headers,
             query_string={
                 'start_time': (datetime.utcnow() - timedelta(hours=2)).isoformat() + 'Z',
                 'interval': '1h'
@@ -266,7 +273,7 @@ class TestRetrievalEndpointE2E:
         data = json.loads(response.data)
         assert data['query']['interval'] == '1h'
     
-    def test_retrieval_with_field_filtering(self, client, app, sample_machine):
+    def test_retrieval_with_field_filtering(self, client, auth_headers, app, sample_machine):
         """Test retrieval with field filtering"""
         # Ingest data
         with app.app_context():
@@ -284,6 +291,7 @@ class TestRetrievalEndpointE2E:
         # Retrieve only temperature
         response = client.get(
             f'/api/v1/data/machine/{sample_machine.id}',
+            headers=auth_headers,
             query_string={
                 'start_time': (datetime.utcnow() - timedelta(hours=1)).isoformat() + 'Z',
                 'fields': 'temperature'
@@ -294,7 +302,7 @@ class TestRetrievalEndpointE2E:
         data = json.loads(response.data)
         assert data['query']['fields'] == ['temperature']
     
-    def test_retrieval_with_pagination(self, client, app, sample_machine):
+    def test_retrieval_with_pagination(self, client, auth_headers, app, sample_machine):
         """Test retrieval with pagination"""
         # Ingest multiple data points
         with app.app_context():
@@ -312,6 +320,7 @@ class TestRetrievalEndpointE2E:
         # Retrieve with limit
         response = client.get(
             f'/api/v1/data/machine/{sample_machine.id}',
+            headers=auth_headers,
             query_string={
                 'start_time': (datetime.utcnow() - timedelta(hours=1)).isoformat() + 'Z',
                 'limit': 10,
@@ -329,7 +338,7 @@ class TestRetrievalEndpointE2E:
 class TestCompleteWorkflow:
     """End-to-end tests for complete workflows"""
     
-    def test_ingest_and_retrieve_workflow(self, client, sample_machine):
+    def test_ingest_and_retrieve_workflow(self, client, auth_headers, sample_machine):
         """Test complete workflow: ingest data then retrieve it"""
         # Extract machine data early
         machine_id = str(sample_machine.id)
@@ -364,7 +373,8 @@ class TestCompleteWorkflow:
         ingest_response = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(ingest_payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         
         assert ingest_response.status_code == 201
@@ -372,6 +382,7 @@ class TestCompleteWorkflow:
         # Step 2: Retrieve the ingested data
         retrieval_response = client.get(
             f'/api/v1/data/machine/{machine_id}',
+            headers=auth_headers,
             query_string={
                 'start_time': (datetime.utcnow() - timedelta(hours=1)).isoformat() + 'Z',
                 'interval': 'raw'
@@ -382,7 +393,7 @@ class TestCompleteWorkflow:
         retrieval_data = json.loads(retrieval_response.data)
         assert retrieval_data['status'] == 'success'
     
-    def test_multiple_gateways_workflow(self, client, sample_machines):
+    def test_multiple_gateways_workflow(self, client, auth_headers, sample_machines):
         """Test workflow with multiple gateways and machines"""
         # Extract machine data early to avoid detached instance issues
         machines_data = [
@@ -417,7 +428,8 @@ class TestCompleteWorkflow:
         response1 = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(gateway1_payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         assert response1.status_code == 201
         
@@ -438,7 +450,8 @@ class TestCompleteWorkflow:
         response2 = client.post(
             '/api/v1/data/ingest',
             data=json.dumps(gateway2_payload),
-            content_type='application/json'
+            content_type='application/json',
+            headers=auth_headers
         )
         assert response2.status_code == 201
         
@@ -446,7 +459,8 @@ class TestCompleteWorkflow:
         for machine_data in machines_data:
             retrieval_response = client.get(
                 f'/api/v1/data/machine/{machine_data["id"]}',
-                query_string={
+                headers=auth_headers,
+            query_string={
                     'start_time': (datetime.utcnow() - timedelta(hours=1)).isoformat() + 'Z'
                 }
             )
