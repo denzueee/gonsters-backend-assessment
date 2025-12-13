@@ -124,20 +124,21 @@ class TestIngestEndpoint:
 class TestRetrievalEndpoint:
     """Unit tests for retrieval endpoint"""
     
-    def test_retrieval_invalid_machine_id(self, client):
+    def test_retrieval_invalid_machine_id(self, client, auth_headers):
         """Test retrieval with invalid machine ID"""
-        response = client.get('/api/v1/data/machine/invalid-uuid')
+        response = client.get('/api/v1/data/machine/invalid-uuid', headers=auth_headers)
         
         assert response.status_code == 400
         data = json.loads(response.data)
         assert data['status'] == 'error'
     
-    def test_retrieval_machine_not_found(self, client):
+    def test_retrieval_machine_not_found(self, client, auth_headers):
         """Test retrieval with non-existent machine"""
         fake_uuid = str(uuid4())
         response = client.get(
             f'/api/v1/data/machine/{fake_uuid}',
-            query_string={'start_time': datetime.utcnow().isoformat() + 'Z'}
+            query_string={'start_time': datetime.utcnow().isoformat() + 'Z'},
+            headers=auth_headers
         )
         
         assert response.status_code == 404
@@ -145,48 +146,51 @@ class TestRetrievalEndpoint:
         assert data['status'] == 'error'
         assert 'not found' in data['message'].lower()
     
-    def test_retrieval_missing_start_time(self, client, valid_machine_id):
+    def test_retrieval_missing_start_time(self, client, valid_machine_id, auth_headers):
         """Test retrieval without start_time parameter"""
-        response = client.get(f'/api/v1/data/machine/{valid_machine_id}')
+        response = client.get(f'/api/v1/data/machine/{valid_machine_id}', headers=auth_headers)
         
         assert response.status_code == 400
         data = json.loads(response.data)
         assert 'start_time' in str(data).lower()
     
-    def test_retrieval_invalid_interval(self, client, valid_machine_id):
+    def test_retrieval_invalid_interval(self, client, valid_machine_id, auth_headers):
         """Test retrieval with invalid interval"""
         response = client.get(
             f'/api/v1/data/machine/{valid_machine_id}',
             query_string={
                 'start_time': datetime.utcnow().isoformat() + 'Z',
                 'interval': 'invalid_interval'
-            }
+            },
+            headers=auth_headers
         )
         
         assert response.status_code == 400
         data = json.loads(response.data)
         assert 'interval' in str(data).lower()
     
-    def test_retrieval_invalid_limit(self, client, valid_machine_id):
+    def test_retrieval_invalid_limit(self, client, valid_machine_id, auth_headers):
         """Test retrieval with invalid limit"""
         response = client.get(
             f'/api/v1/data/machine/{valid_machine_id}',
             query_string={
                 'start_time': datetime.utcnow().isoformat() + 'Z',
                 'limit': 'invalid'
-            }
+            },
+            headers=auth_headers
         )
         
         assert response.status_code == 400
     
-    def test_retrieval_limit_out_of_range(self, client, valid_machine_id):
+    def test_retrieval_limit_out_of_range(self, client, valid_machine_id, auth_headers):
         """Test retrieval with limit out of range"""
         response = client.get(
             f'/api/v1/data/machine/{valid_machine_id}',
             query_string={
                 'start_time': datetime.utcnow().isoformat() + 'Z',
                 'limit': 20000  # Exceeds max 10000
-            }
+            },
+            headers=auth_headers
         )
         
         assert response.status_code == 400

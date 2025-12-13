@@ -170,6 +170,57 @@ def valid_machine_id(sample_machine):
     return str(sample_machine.id)
 
 
+@pytest.fixture(scope='function')
+def test_user(db_session):
+    """Create a test user for authentication"""
+    from app.models import User
+    
+    user = User(
+        username='test_operator',
+        email='test@example.com',
+        role='Operator',
+        factory_id='factory-test',
+        department='Testing'
+    )
+    user.set_password('testpass123')
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    
+    yield user
+    
+    # Cleanup
+    db_session.delete(user)
+    db_session.commit()
+
+
+@pytest.fixture(scope='function')
+def auth_token(app, test_user):
+    """Generate JWT token for test user"""
+    from app.auth import create_access_token
+    
+    with app.app_context():
+        user_data = {
+            'sub': str(test_user.id),
+            'username': test_user.username,
+            'email': test_user.email,
+            'role': test_user.role,
+            'permissions': test_user.get_permissions(),
+            'factory_id': test_user.factory_id,
+            'department': test_user.department
+        }
+        return create_access_token(user_data)
+
+
+@pytest.fixture(scope='function')
+def auth_headers(auth_token):
+    """Generate authorization headers for API requests"""
+    return {
+        'Authorization': f'Bearer {auth_token}',
+        'Content-Type': 'application/json'
+    }
+
+
 # Pytest configuration
 def pytest_configure(config):
     """Konfigurasi pytest"""
