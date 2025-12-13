@@ -13,28 +13,28 @@ class RegisterRequest(BaseModel):
     role: str = Field(default="Operator", description="Role user")
     factory_id: Optional[str] = Field(None, max_length=50, description="ID Factory")
     department: Optional[str] = Field(None, max_length=100, description="Departemen")
-    
-    @validator('role')
+
+    @validator("role")
     def validate_role(cls, v):
         """Validasi role harus sesuai yang diperbolehkan"""
-        allowed_roles = ['Operator', 'Supervisor', 'Management']
+        allowed_roles = ["Operator", "Supervisor", "Management"]
         if v not in allowed_roles:
             raise ValueError(f'Role harus salah satu dari: {", ".join(allowed_roles)}')
         return v
-    
-    @validator('password')
+
+    @validator("password")
     def validate_password(cls, v):
         """Validasi kekuatan password"""
         if len(v) < 8:
-            raise ValueError('Password minimal 8 karakter')
+            raise ValueError("Password minimal 8 karakter")
         if not any(c.isupper() for c in v):
-            raise ValueError('Password harus mengandung minimal satu huruf kapital')
+            raise ValueError("Password harus mengandung minimal satu huruf kapital")
         if not any(c.islower() for c in v):
-            raise ValueError('Password harus mengandung minimal satu huruf kecil')
+            raise ValueError("Password harus mengandung minimal satu huruf kecil")
         if not any(c.isdigit() for c in v):
-            raise ValueError('Password harus mengandung minimal satu angka')
+            raise ValueError("Password harus mengandung minimal satu angka")
         return v
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -43,7 +43,7 @@ class RegisterRequest(BaseModel):
                 "password": "SecurePass123!",
                 "role": "Operator",
                 "factory_id": "factory-A",
-                "department": "Production"
+                "department": "Production",
             }
         }
 
@@ -51,14 +51,9 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str = Field(..., description="Username atau email")
     password: str = Field(..., description="Password")
-    
+
     class Config:
-        json_schema_extra = {
-            "example": {
-                "username": "john.doe",
-                "password": "SecurePass123!"
-            }
-        }
+        json_schema_extra = {"example": {"username": "john.doe", "password": "SecurePass123!"}}
 
 
 class TokenResponse(BaseModel):
@@ -67,7 +62,7 @@ class TokenResponse(BaseModel):
     token_type: str = "Bearer"
     expires_in: int
     user: dict
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -79,21 +74,17 @@ class TokenResponse(BaseModel):
                     "id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
                     "username": "john.doe",
                     "email": "john.doe@factory.com",
-                    "role": "Operator"
-                }
+                    "role": "Operator",
+                },
             }
         }
 
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str = Field(..., description="Refresh token")
-    
+
     class Config:
-        json_schema_extra = {
-            "example": {
-                "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-            }
-        }
+        json_schema_extra = {"example": {"refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}}
 
 
 class UserResponse(BaseModel):
@@ -107,7 +98,7 @@ class UserResponse(BaseModel):
     permissions: Optional[List[str]] = None
     created_at: Optional[str] = None
     last_login: Optional[str] = None
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -119,7 +110,7 @@ class UserResponse(BaseModel):
                 "department": "Production",
                 "is_active": True,
                 "permissions": ["read:machines", "read:sensor_data"],
-                "created_at": "2025-12-13T00:00:00Z"
+                "created_at": "2025-12-13T00:00:00Z",
             }
         }
 
@@ -127,11 +118,6 @@ class UserResponse(BaseModel):
 class ConfigUpdateRequest(BaseModel):
     setting_name: str = Field(..., min_length=1, max_length=100, description="Nama setting")
     setting_value: str = Field(..., description="Nilai setting")
-    
+
     class Config:
-        json_schema_extra = {
-            "example": {
-                "setting_name": "max_temperature_threshold",
-                "setting_value": "85.0"
-            }
-        }
+        json_schema_extra = {"example": {"setting_name": "max_temperature_threshold", "setting_value": "85.0"}}

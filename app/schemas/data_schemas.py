@@ -13,25 +13,17 @@ class SensorReading(BaseModel):
     temperature: Optional[float] = Field(None, description="Temperatur dalam Celsius", ge=-273.15, le=1000)
     pressure: Optional[float] = Field(None, description="Tekanan dalam kPa", ge=0, le=10000)
     speed: Optional[float] = Field(None, description="Kecepatan dalam RPM", ge=0, le=100000)
-    
-    @validator('temperature', 'pressure', 'speed')
+
+    @validator("temperature", "pressure", "speed")
     def at_least_one_field(cls, v, values):
         """Pastikan setidaknya satu nilai sensor ada"""
-        if v is None and all(
-            values.get(field) is None 
-            for field in ['temperature', 'pressure', 'speed']
-        ):
-            raise ValueError('Minimal satu nilai sensor (temperature, pressure, atau speed) harus diisi')
+        if v is None and all(values.get(field) is None for field in ["temperature", "pressure", "speed"]):
+            raise ValueError("Minimal satu nilai sensor (temperature, pressure, atau speed) harus diisi")
         return v
-    
+
     class Config:
         json_schema_extra = {
-            "example": {
-                "timestamp": "2025-12-13T03:38:50Z",
-                "temperature": 72.5,
-                "pressure": 101.3,
-                "speed": 1450.0
-            }
+            "example": {"timestamp": "2025-12-13T03:38:50Z", "temperature": 72.5, "pressure": 101.3, "speed": 1450.0}
         }
 
 
@@ -40,20 +32,14 @@ class MachineData(BaseModel):
     sensor_type: str = Field(..., description="Tipe sensor", min_length=1, max_length=100)
     location: str = Field(..., description="Lokasi fisik", min_length=1, max_length=500)
     readings: List[SensorReading] = Field(..., description="Array pembacaan sensor", min_items=1)
-    
+
     class Config:
         json_schema_extra = {
             "example": {
                 "machine_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
                 "sensor_type": "Temperature",
                 "location": "Factory Floor 1 - Zone A",
-                "readings": [
-                    {
-                        "timestamp": "2025-12-13T03:38:50Z",
-                        "temperature": 72.5,
-                        "pressure": 101.3
-                    }
-                ]
+                "readings": [{"timestamp": "2025-12-13T03:38:50Z", "temperature": 72.5, "pressure": 101.3}],
             }
         }
 
@@ -62,7 +48,7 @@ class IngestRequest(BaseModel):
     gateway_id: str = Field(..., description="Identifier Gateway", min_length=1, max_length=255)
     timestamp: datetime = Field(..., description="Waktu transmisi Gateway")
     batch: List[MachineData] = Field(..., description="Batch data mesin", min_items=1, max_items=1000)
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -73,15 +59,9 @@ class IngestRequest(BaseModel):
                         "machine_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
                         "sensor_type": "Temperature",
                         "location": "Factory Floor 1 - Zone A",
-                        "readings": [
-                            {
-                                "timestamp": "2025-12-13T03:38:50Z",
-                                "temperature": 72.5,
-                                "pressure": 101.3
-                            }
-                        ]
+                        "readings": [{"timestamp": "2025-12-13T03:38:50Z", "temperature": 72.5, "pressure": 101.3}],
                     }
-                ]
+                ],
             }
         }
 
@@ -152,11 +132,11 @@ class CreateMachineRequest(BaseModel):
     name: str = Field(..., description="Nama mesin", min_length=1, max_length=255)
     location: str = Field(..., description="Lokasi mesin", min_length=1, max_length=500)
     sensor_type: str = Field(..., description="Tipe sensor utama", min_length=1, max_length=100)
-    status: Optional[str] = Field('active', description="Status awal ('active', 'inactive', 'maintenance', 'error')")
-    
-    @validator('status')
+    status: Optional[str] = Field("active", description="Status awal ('active', 'inactive', 'maintenance', 'error')")
+
+    @validator("status")
     def validate_status(cls, v):
-        allowed = ['active', 'inactive', 'maintenance', 'error']
+        allowed = ["active", "inactive", "maintenance", "error"]
         if v not in allowed:
             raise ValueError(f'Status harus salah satu dari: {", ".join(allowed)}')
         return v

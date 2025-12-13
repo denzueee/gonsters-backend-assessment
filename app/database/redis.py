@@ -15,13 +15,13 @@ redis_client = None
 def init_redis():
     """
     Inisialisasi koneksi Redis
-    
+
     Returns:
         Redis: Client Redis atau None jika gagal
     """
     global redis_client
     config = get_config()
-    
+
     try:
         client = redis.Redis(
             host=config.REDIS_HOST,
@@ -29,7 +29,7 @@ def init_redis():
             db=config.REDIS_DB,
             password=config.REDIS_PASSWORD,
             decode_responses=True,
-            socket_connect_timeout=1
+            socket_connect_timeout=1,
         )
         client.ping()
         logger.info("Connected to Redis successfully")
@@ -46,14 +46,14 @@ def init_redis():
 def get_redis_client():
     """
     Mengambil client Redis. Mencoba reconnect jika belum terhubung.
-    
+
     Returns:
         Redis: Client Redis atau None
     """
-    global redis_client
+
     if redis_client is None:
         return init_redis()
-    
+
     try:
         redis_client.ping()
         return redis_client
@@ -65,7 +65,7 @@ def get_redis_client():
 def blacklist_token(token, ttl=3600):
     """
     Menambahkan token ke blacklist
-    
+
     Args:
         token (str): JWT token string
         ttl (int): Time to live dalam detik (default: 1 jam)
@@ -86,10 +86,10 @@ def blacklist_token(token, ttl=3600):
 def is_token_blacklisted(token):
     """
     Memeriksa apakah token ada di blacklist
-    
+
     Args:
         token (str): JWT token string
-        
+
     Returns:
         bool: True jika token di-blacklist, False jika tidak
     """
