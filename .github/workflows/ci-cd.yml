@@ -26,11 +26,16 @@ jobs:
         ports:
           - 5432:5432
       
+      
       influxdb:
         image: influxdb:2.7
         env:
-          INFLUXDB_DB: test_db
-          INFLUXDB_HTTP_AUTH_ENABLED: false
+          DOCKER_INFLUXDB_INIT_MODE: setup
+          DOCKER_INFLUXDB_INIT_USERNAME: admin
+          DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword
+          DOCKER_INFLUXDB_INIT_ORG: gonsters
+          DOCKER_INFLUXDB_INIT_BUCKET: sensor_data
+          DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: testing-influx-token
         ports:
           - 8086:8086
       
@@ -48,6 +53,9 @@ jobs:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: gonsters_test_db
       INFLUXDB_URL: http://localhost:8086
+      INFLUXDB_TOKEN: testing-influx-token
+      INFLUXDB_ORG: gonsters
+      INFLUXDB_BUCKET: sensor_data
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       MQTT_BROKER: localhost
