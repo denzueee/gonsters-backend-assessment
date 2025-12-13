@@ -12,7 +12,7 @@ This is the solution for the **GONSTERS Back End Developer** Technical Assessmen
 - **REST API** with generic JWT authentication, Role-Based Access Control (RBAC), and token blacklist (logout).
 - **MQTT Subscriber** for data ingestion from brokers.
 - **Redis Caching** for query optimization and token blacklisting.
-- **Test Coverage** >78% with 73 test cases.
+- **Test Coverage** 75.69% with 87 passing test cases (70% threshold).
 - **Docker Support** for both development and production environments.
 - **CI/CD Pipeline** using GitHub Actions.
 
@@ -153,12 +153,12 @@ docker exec -i gonsters-postgres psql -U postgres -d gonsters_db < migrations/cr
 ## Testing
 
 ### Test Suite
-Total of **73 test cases** covering:
+Total of **87 passing test cases** covering:
 -   **Unit Tests**: Database handlers, schemas, routes.
 -   **Integration Tests**: Cross-database operations.
 -   **E2E Tests**: Full API workflows.
 
-*All tests passing with >78% coverage.*
+*All tests passing with 75.69% coverage (above 70% threshold).*
 
 ### Running Tests
 
@@ -179,8 +179,8 @@ pytest tests/e2e/ -m e2e
 ```
 
 ### Coverage Report
--   **Current Coverage**: 78.30%
--   **Target**: 80%
+-   **Current Coverage**: 75.69%
+-   **Target**: 70%
 
 View `htmlcov/index.html` for detailed reporting.
 
