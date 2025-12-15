@@ -47,12 +47,29 @@ services:
       - MQTT_CLIENT_ID=${MQTT_CLIENT_ID}
       - MQTT_QOS=${MQTT_QOS:-1}
     depends_on:
-      - postgres
-      - influxdb
-      - redis
-      - mosquitto
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    dns_opt:
+      - ndots:1
+      - timeout:2
+      - attempts:2
+    extra_hosts:
+      - "postgres:172.20.0.20"
+      - "influxdb:172.20.0.30"
+      - "redis:172.20.0.40"
+      - "mosquitto:172.20.0.50"
     networks:
-      - gonsters_net
+      gonsters_net:
+        ipv4_address: 172.20.0.10
 
   postgres:
     image: postgres:15-alpine
@@ -73,7 +90,8 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - gonsters_net
+      gonsters_net:
+        ipv4_address: 172.20.0.20
 
   influxdb:
     image: influxdb:2.7-alpine
@@ -99,7 +117,8 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - gonsters_net
+      gonsters_net:
+        ipv4_address: 172.20.0.30
 
   redis:
     image: redis:7-alpine
@@ -115,7 +134,8 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - gonsters_net
+      gonsters_net:
+        ipv4_address: 172.20.0.40
 
   mosquitto:
     image: eclipse-mosquitto:2
@@ -129,7 +149,8 @@ services:
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
     networks:
-      - gonsters_net
+      gonsters_net:
+        ipv4_address: 172.20.0.50
 
 volumes:
   postgres_data:
@@ -143,3 +164,7 @@ volumes:
 networks:
   gonsters_net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
