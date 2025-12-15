@@ -30,7 +30,7 @@ def init_postgres_db():
     try:
         # Bikin engine dengan pooling
         engine = create_engine(
-            config.SQLALCHEMY_DATABASE_URI, poolclass=QueuePool, **config.SQLALCHEMY_ENGINE_OPTIONS, echo=config.DEBUG
+            config.SQLALCHEMY_DATABASE_URI, poolclass=QueuePool, **config.SQLALCHEMY_ENGINE_OPTIONS, echo=False
         )
 
         # Register event listeners setelah engine dibuat
