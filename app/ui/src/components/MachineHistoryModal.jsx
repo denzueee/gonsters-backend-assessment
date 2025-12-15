@@ -1,25 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { X, History, Download, Calendar } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export default function MachineHistoryModal({ show, onClose, machine }) {
-    const [historicalData, setHistoricalData] = useState([]);
+    const [offset, setOffset] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+    // Separate states for Table (paginated) and Chart (full range)
+    const [historicalData, setHistoricalData] = useState([]); // Table data
+    const [fullChartData, setFullChartData] = useState([]);   // Chart data
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [dateRange, setDateRange] = useState({
-        start_time: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+        start_time: new Date(new Date().setHours(new Date().getHours() - 24)).toISOString().slice(0, 16),
         end_time: new Date().toISOString().slice(0, 16),
         interval: 'raw'
     });
 
-    useEffect(() => {
-        if (show && machine) {
-            fetchHistoricalData();
-        }
-    }, [show, machine]);
-
-    const fetchHistoricalData = async () => {
+    // Fetch Table Data (Paginated)
+    const fetchTableData = useCallback(async (currentOffset = 0, isReset = false) => {
         if (!machine) return;
 
         setLoading(true);
@@ -31,26 +33,95 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
                 end_time: new Date(dateRange.end_time).toISOString(),
                 interval: dateRange.interval,
                 fields: 'all',
-                limit: 100
+                limit: 10,
+                offset: currentOffset
             };
 
             const response = await axios.get(`/api/v1/data/machine/${machine.machine_id}`, { params });
 
             if (response.data.status === 'success') {
-                setHistoricalData(response.data.data);
+                const newData = response.data.data;
+                const pagination = response.data.pagination;
+
+                if (isReset) {
+                    setHistoricalData(newData);
+                } else {
+                    setHistoricalData(prev => [...prev, ...newData]);
+                }
+
+                setHasMore(pagination.has_more);
+                setOffset(currentOffset + 10);
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to fetch historical data');
         } finally {
             setLoading(false);
+            setIsInitialLoad(false);
         }
-    };
+    }, [machine, dateRange]);
+
+    // Fetch Chart Data (Full Range, Unlimited)
+    const fetchChartData = useCallback(async () => {
+        if (!machine) return;
+
+        try {
+            const params = {
+                start_time: new Date(dateRange.start_time).toISOString(),
+                end_time: new Date(dateRange.end_time).toISOString(),
+                interval: dateRange.interval,
+                fields: 'all',
+                limit: -1, // Unlimited (handled by backend)
+                offset: 0
+            };
+
+            const response = await axios.get(`/api/v1/data/machine/${machine.machine_id}`, { params });
+
+            if (response.data.status === 'success') {
+                setFullChartData(response.data.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch chart data', err);
+        }
+    }, [machine, dateRange]);
+
+    // Infinite Scroll Refs
+    const observer = useRef();
+    const lastElementRef = useCallback(node => {
+        if (loading) return;
+        if (observer.current) observer.current.disconnect();
+
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                fetchTableData(offset, false);
+            }
+        });
+
+        if (node) observer.current.observe(node);
+    }, [loading, hasMore, offset, fetchTableData]);
+
+    useEffect(() => {
+        if (show && machine) {
+            // Reset state when opening modal or changing machine
+            setHistoricalData([]);
+            setFullChartData([]);
+            setOffset(0);
+            setHasMore(true);
+            setIsInitialLoad(true);
+
+            // Trigger both fetches
+            fetchTableData(0, true);
+            fetchChartData();
+        }
+    }, [show, machine, fetchTableData, fetchChartData]);
 
     const downloadCSV = () => {
-        if (historicalData.length === 0) return;
+        if (historicalData.length === 0 && fullChartData.length === 0) return;
+
+        // Export full data if available
+        const exportData = fullChartData.length > 0 ? fullChartData : historicalData;
 
         const headers = ['Timestamp', 'Temperature (°C)', 'Pressure (kPa)', 'Speed (RPM)'];
-        const rows = historicalData.map(d => [
+        const rows = exportData.map(d => [
             d.timestamp,
             d.temperature || '',
             d.pressure || '',
@@ -70,7 +141,8 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
         a.click();
     };
 
-    const chartData = historicalData.map(d => ({
+    // Prepare Chart Data (Chronological)
+    const chartData = [...fullChartData].reverse().map(d => ({
         time: new Date(d.timestamp).toLocaleTimeString(),
         temperature: d.temperature,
         pressure: d.pressure,
@@ -147,21 +219,24 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
                             </div>
                             <div className="flex items-end">
                                 <button
-                                    onClick={fetchHistoricalData}
+                                    onClick={() => {
+                                        fetchTableData(0, true);
+                                        fetchChartData();
+                                    }}
                                     disabled={loading}
                                     className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-400 transition"
                                 >
-                                    {loading ? 'Loading...' : 'Apply Filter'}
+                                    {loading && isInitialLoad ? 'Loading...' : 'Apply Filter'}
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {loading ? (
+                    {loading && isInitialLoad ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
                         </div>
-                    ) : historicalData.length > 0 ? (
+                    ) : (
                         <>
                             {/* Chart */}
                             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -190,49 +265,64 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
                             </div>
 
                             {/* Data Table */}
-                            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead className="bg-gray-50 dark:bg-gray-900">
-                                            <tr>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Timestamp</th>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Temperature (°C)</th>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Pressure (kPa)</th>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Speed (RPM)</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                            {historicalData.map((item, idx) => (
-                                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-900">
-                                                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                                        {new Date(item.timestamp).toLocaleString()}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 font-mono">
-                                                        {item.temperature?.toFixed(2) || '--'}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 font-mono">
-                                                        {item.pressure?.toFixed(2) || '--'}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 font-mono">
-                                                        {item.speed?.toFixed(0) || '--'}
-                                                    </td>
+                            {historicalData.length > 0 ? (
+                                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-gray-50 dark:bg-gray-900">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Timestamp</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Temperature (°C)</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Pressure (kPa)</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Speed (RPM)</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                                {historicalData.map((item, idx) => (
+                                                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-900">
+                                                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                                            {new Date(item.timestamp).toLocaleString()}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 font-mono">
+                                                            {item.temperature?.toFixed(2) || '--'}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 font-mono">
+                                                            {item.pressure?.toFixed(2) || '--'}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 font-mono">
+                                                            {item.speed?.toFixed(0) || '--'}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {/* Sentinel element for infinite scroll */}
+                                                {hasMore && (
+                                                    <tr ref={lastElementRef} className="bg-transparent">
+                                                        <td colSpan="4" className="text-center py-4">
+                                                            {loading && (
+                                                                <div className="flex justify-center items-center gap-2">
+                                                                    <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                                                                    <span className="text-sm text-gray-400">Loading more...</span>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                                    <History className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                    <p>No historical data found for the selected time range</p>
+                                    <p className="text-sm mt-2">Try adjusting the date range or interval</p>
+                                </div>
+                            )}
 
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center">
-                                Showing {historicalData.length} records
+                                Showing {historicalData.length} records in table
                             </p>
                         </>
-                    ) : (
-                        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                            <History className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                            <p>No historical data found for the selected time range</p>
-                            <p className="text-sm mt-2">Try adjusting the date range or interval</p>
-                        </div>
                     )}
                 </div>
             </div>

@@ -163,6 +163,34 @@ def ingest_data():  # noqa: C901
                             if success:
                                 readings_written += 1
                                 total_readings += 1
+                                
+                                # Broadcast ke WebSocket clients untuk real-time update
+                                try:
+                                    from app.websocket.websocket_handler import broadcast_sensor_data
+                                    # Ensure timestamp is properly formatted as ISO string
+                                    timestamp_str = reading.timestamp
+                                    if hasattr(reading.timestamp, 'isoformat'):
+                                        timestamp_str = reading.timestamp.isoformat()
+                                    elif not isinstance(timestamp_str, str):
+                                        timestamp_str = str(reading.timestamp)
+                                    
+                                    # Ensure 'Z' suffix for UTC
+                                    if isinstance(timestamp_str, str):
+                                        timestamp_str = timestamp_str.replace('+00:00', '')
+                                    if not timestamp_str.endswith('Z'):
+                                        timestamp_str += 'Z'
+                                    
+                                    broadcast_sensor_data(machine_id, {
+                                        'machine_id': machine_id,
+                                        'sensor_type': sensor_type,
+                                        'location': location,
+                                        'timestamp': timestamp_str,
+                                        'temperature': float(reading.temperature) if reading.temperature else None,
+                                        'pressure': float(reading.pressure) if reading.pressure else None,
+                                        'speed': float(reading.speed) if reading.speed else None
+                                    })
+                                except Exception as ws_error:
+                                    logger.debug(f"WebSocket broadcast failed: {ws_error}")
                             else:
                                 logger.error(f"Failed to write reading for machine {machine_id}")
 
@@ -353,15 +381,18 @@ def get_machine_data(machine_id):  # noqa: C901
                     }
                 )
 
-        # limit (opsional, default: 1000)
-        limit_str = request.args.get("limit", "1000")
+        # limit (opsional, default: 10)
+        limit_str = request.args.get("limit", "10")
         try:
             limit = int(limit_str)
-            if limit < 1 or limit > 10000:
-                errors.append({"parameter": "limit", "error": "Limit must be between 1 and 10000", "value": limit_str})
+            # Allow -1 for effectively unlimited (capped at 100k for safety)
+            if limit == -1:
+                limit = 100000
+            elif limit < 1 or limit > 100000:
+                errors.append({"parameter": "limit", "error": "Limit must be between 1 and 100000", "value": limit_str})
         except ValueError:
             errors.append({"parameter": "limit", "error": "Limit must be an integer", "value": limit_str})
-            limit = 1000
+            limit = 10
 
         # offset (opsional, default: 0)
         offset_str = request.args.get("offset", "0")
@@ -393,13 +424,13 @@ def get_machine_data(machine_id):  # noqa: C901
         # Group by timestamp
         data_points = {}
         for record in filtered_data:
-            timestamp = record["time"].isoformat()
+            timestamp = record["time"].isoformat() if hasattr(record["time"], 'isoformat') else str(record["time"])
             if timestamp not in data_points:
-                data_points[timestamp] = {"timestamp": record["time"]}
+                data_points[timestamp] = {"timestamp": timestamp}
             data_points[timestamp][record["field"]] = record["value"]
 
-        # Convert to list and sort by timestamp
-        data_list = sorted(data_points.values(), key=lambda x: x["timestamp"])
+        # Convert to list and sort by timestamp (descending - newest first)
+        data_list = sorted(data_points.values(), key=lambda x: x["timestamp"], reverse=True)
 
         # Apply pagination
         total_records = len(data_list)
@@ -419,7 +450,7 @@ def get_machine_data(machine_id):  # noqa: C901
                     },
                     "data": [
                         {
-                            "timestamp": dp["timestamp"].isoformat() + "Z",
+                            "timestamp": dp["timestamp"].replace('+00:00', '') + 'Z' if not dp["timestamp"].endswith('Z') else dp["timestamp"],
                             **{k: v for k, v in dp.items() if k != "timestamp"},
                         }
                         for dp in paginated_data
@@ -504,6 +535,10 @@ def list_machines():
         location = request.args.get("location")
         status = request.args.get("status")
         sensor_type = request.args.get("sensor_type")
+        
+        # Pagination params
+        limit = int(request.args.get("limit", 10))
+        offset = int(request.args.get("offset", 0))
 
         with get_db() as db:
             query = db.query(MachineMetadata)
@@ -515,7 +550,11 @@ def list_machines():
             if sensor_type:
                 query = query.filter(MachineMetadata.sensor_type == sensor_type)
 
-            machines = query.all()
+            # Get total count before pagination
+            total_count = query.count()
+            
+            # Apply sorting (newest first) and pagination
+            machines = query.order_by(MachineMetadata.created_at.desc()).offset(offset).limit(limit).all()
 
             result = []
             for m in machines:
@@ -523,7 +562,17 @@ def list_machines():
                     {"machine_id": str(m.id), "name": m.name, "location": m.location, "sensor_type": m.sensor_type}
                 )
 
-            return jsonify({"status": "success", "count": len(result), "machines": result}), 200
+            return jsonify({
+                "status": "success", 
+                "pagination": {
+                    "total_records": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": (offset + limit) < total_count
+                },
+                "count": len(result), 
+                "machines": result
+            }), 200
 
     except Exception as e:
         logger.error(f"List machines error: {str(e)}")

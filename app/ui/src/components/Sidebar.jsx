@@ -1,10 +1,25 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Search, Filter } from 'lucide-react';
 
-export default function Sidebar({ machines, selectedMachine, onSelectMachine, onFilterChange }) {
+export default function Sidebar({ machines, selectedMachine, onSelectMachine, onFilterChange, hasMore, onLoadMore, loadingMore }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [locationFilter, setLocationFilter] = useState('all');
+
+    // Observer for infinite scroll
+    const observer = useRef();
+    const lastMachineRef = useCallback(node => {
+        if (loadingMore) return;
+        if (observer.current) observer.current.disconnect();
+
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                if (onLoadMore) onLoadMore();
+            }
+        });
+
+        if (node) observer.current.observe(node);
+    }, [loadingMore, hasMore, onLoadMore]);
 
     const handleSearchChange = (value) => {
         setSearchTerm(value);
@@ -100,23 +115,34 @@ export default function Sidebar({ machines, selectedMachine, onSelectMachine, on
 
                 {/* Machine List */}
                 <div className="space-y-2">
-                    {filteredMachines.map(machine => (
-                        <button
-                            key={machine.machine_id}
-                            onClick={() => onSelectMachine(machine)}
-                            className={`w-full text-left p-3 rounded-lg border transition ${selectedMachine?.machine_id === machine.machine_id
+                    {filteredMachines.map((machine, index) => {
+                        // Apply ref to the last element
+                        const isLast = index === filteredMachines.length - 1;
+                        return (
+                            <button
+                                key={machine.machine_id}
+                                ref={isLast ? lastMachineRef : null}
+                                onClick={() => onSelectMachine(machine)}
+                                className={`w-full text-left p-3 rounded-lg border transition ${selectedMachine?.machine_id === machine.machine_id
                                     ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-500'
                                     : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
-                                }`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${getStatusColor(machine.status)}`}></div>
-                                <div className="font-medium text-gray-900 dark:text-white text-sm">{machine.name}</div>
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{machine.location}</div>
-                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{machine.sensor_type}</div>
-                        </button>
-                    ))}
+                                    }`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-2 h-2 rounded-full ${getStatusColor(machine.status)}`}></div>
+                                    <div className="font-medium text-gray-900 dark:text-white text-sm">{machine.name}</div>
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{machine.location}</div>
+                                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{machine.sensor_type}</div>
+                            </button>
+                        );
+                    })}
+
+                    {loadingMore && (
+                        <div className="flex justify-center p-2">
+                            <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    )}
                 </div>
 
                 {filteredMachines.length === 0 && (

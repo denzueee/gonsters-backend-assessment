@@ -31,7 +31,7 @@ export const WebSocketProvider = ({ children }) => {
 
         newSocket.on('sensor_data', (data) => {
             setSensorData(prev => {
-                const newData = [...prev, data].slice(-30); // Keep last 30 points
+                const newData = [...prev, data].slice(-1000); // Keep last 1000 points
                 return newData;
             });
         });
