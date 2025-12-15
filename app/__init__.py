@@ -52,6 +52,11 @@ def create_app(config_name=None):
             logger.error(f"Failed to initialize databases: {str(e)}")
             raise
 
+    # Initialize SocketIO untuk real-time communication
+    from app.websocket.websocket_handler import socketio
+    socketio.init_app(app)
+    logger.info("Flask-SocketIO initialized")
+
     # Register blueprints
     from app.routes import data_bp, auth_bp, config_bp
 
@@ -76,8 +81,3 @@ def create_app(config_name=None):
 
     logger.info("Flask application created successfully")
     return app
-
-
-if __name__ == "__main__":
-    app = create_app()
-    app.run(host="0.0.0.0", port=5000, debug=True)
