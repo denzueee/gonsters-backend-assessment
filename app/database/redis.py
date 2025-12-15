@@ -29,7 +29,8 @@ def init_redis():
             db=config.REDIS_DB,
             password=config.REDIS_PASSWORD,
             decode_responses=True,
-            socket_connect_timeout=1,
+            socket_connect_timeout=5,
+            socket_timeout=5,
         )
         client.ping()
         logger.info("Connected to Redis successfully")
