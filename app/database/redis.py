@@ -14,34 +14,45 @@ redis_client = None
 
 def init_redis():
     """
-    Inisialisasi koneksi Redis
-
+    Inisialisasi koneksi Redis dengan retry logic
+    
     Returns:
         Redis: Client Redis atau None jika gagal
     """
     global redis_client
     config = get_config()
-
-    try:
-        client = redis.Redis(
-            host=config.REDIS_HOST,
-            port=config.REDIS_PORT,
-            db=config.REDIS_DB,
-            password=config.REDIS_PASSWORD,
-            decode_responses=True,
-            socket_connect_timeout=5,
-            socket_timeout=5,
-        )
-        client.ping()
-        logger.info("Connected to Redis successfully")
-        redis_client = client
-        return redis_client
-    except redis.ConnectionError as e:
-        logger.warning(f"Redis connection failed: {e}. Caching will be disabled.")
-        return None
-    except Exception as e:
-        logger.error(f"Unexpected error connecting to Redis: {e}")
-        return None
+    
+    # Retry dengan exponential backoff
+    max_retries = 2
+    base_timeout = 2
+    
+    for attempt in range(max_retries):
+        try:
+            timeout = base_timeout * (attempt + 1)  # 2s, 4s
+            client = redis.Redis(
+                host=config.REDIS_HOST,
+                port=config.REDIS_PORT,
+                db=config.REDIS_DB,
+                password=config.REDIS_PASSWORD,
+                decode_responses=True,
+                socket_connect_timeout=timeout,
+                socket_timeout=timeout,
+            )
+            client.ping()
+            logger.info("Connected to Redis successfully")
+            redis_client = client
+            return redis_client
+        except redis.ConnectionError as e:
+            if attempt < max_retries - 1:
+                logger.debug(f"Redis connection attempt {attempt + 1} failed, retrying...")
+            else:
+                logger.warning(f"Redis connection failed after {max_retries} attempts: {e}. Caching will be disabled.")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error connecting to Redis: {e}")
+            return None
+    
+    return None
 
 
 def get_redis_client():

@@ -40,3 +40,7 @@ docker-compose.override.yml
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Node modules
+node_modules/
+package-lock.json

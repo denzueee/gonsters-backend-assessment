@@ -118,6 +118,21 @@ class MQTTSubscriber:
                 logger.info(
                     f"Data stored successfully for machine {machine_id} " f"(total messages: {self.message_count})"
                 )
+                
+                # Broadcast ke WebSocket clients
+                try:
+                    from app.websocket.websocket_handler import broadcast_sensor_data
+                    broadcast_sensor_data(machine_id, {
+                        'machine_id': machine_id,
+                        'sensor_type': sensor_type,
+                        'location': location,
+                        'timestamp': timestamp.isoformat() + 'Z',
+                        'temperature': temperature,
+                        'pressure': pressure,
+                        'speed': speed
+                    })
+                except Exception as e:
+                    logger.warning(f"Failed to broadcast WebSocket data: {str(e)}")
             else:
                 logger.error(f"Failed to store data for machine {machine_id}")
 
