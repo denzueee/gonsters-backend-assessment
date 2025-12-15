@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,6 +19,11 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [darkMode, setDarkMode] = useState(false);
 
+    // Machines Pagination
+    const [offset, setOffset] = useState(0);
+    const [hasMoreMachines, setHasMoreMachines] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+
     // Modal states
     const [showAddMachine, setShowAddMachine] = useState(false);
     const [showIngestData, setShowIngestData] = useState(false);
@@ -28,7 +33,7 @@ export default function Dashboard() {
     const { user, logout } = useAuth();
 
     useEffect(() => {
-        fetchMachines();
+        fetchMachines(0, true);
 
         // Check for dark mode preference
         const isDark = localStorage.getItem('darkMode') === 'true';
@@ -38,18 +43,52 @@ export default function Dashboard() {
         }
     }, []);
 
-    const fetchMachines = async () => {
+    const fetchMachines = async (currentOffset = 0, isRefresh = false) => {
         try {
-            const response = await axios.get('/api/v1/data/machines');
-            const machinesData = response.data.machines || [];
-            setMachines(machinesData);
-            if (machinesData.length > 0 && !selectedMachine) {
-                setSelectedMachine(machinesData[0]);
+            if (currentOffset > 0) setLoadingMore(true);
+
+            const params = {
+                limit: 10,
+                offset: currentOffset
+            };
+
+            const response = await axios.get('/api/v1/data/machines', { params });
+            const newMachines = response.data.machines || [];
+            const pagination = response.data.pagination;
+
+            if (isRefresh) {
+                setMachines(newMachines);
+                if (newMachines.length > 0 && !selectedMachine) {
+                    setSelectedMachine(newMachines[0]);
+                }
+            } else {
+                setMachines(prev => {
+                    // Filter duplicates
+                    const existingIds = new Set(prev.map(m => m.machine_id));
+                    const uniqueNewMachines = newMachines.filter(m => !existingIds.has(m.machine_id));
+                    return [...prev, ...uniqueNewMachines];
+                });
             }
+
+            if (pagination) {
+                setHasMoreMachines(pagination.has_more);
+                setOffset(currentOffset + 10);
+            } else {
+                // Fallback if pagination object missing (shouldn't happen with new backend)
+                setHasMoreMachines(false);
+            }
+
         } catch (error) {
             console.error('Failed to fetch machines:', error);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
+        }
+    };
+
+    const loadMoreMachines = () => {
+        if (!loadingMore && hasMoreMachines) {
+            fetchMachines(offset, false);
         }
     };
 
@@ -66,13 +105,60 @@ export default function Dashboard() {
     };
 
     const handleMachineAdded = () => {
-        fetchMachines();
+        fetchMachines(0, true);
         setShowAddMachine(false);
     };
 
     const handleDataIngested = () => {
         console.log('Data ingested successfully');
     };
+
+    const lastProcessedRef = useRef(null);
+
+    // Update machines list with real-time data
+    useEffect(() => {
+        if (sensorData.length === 0) return;
+
+        const updates = new Map();
+
+        // Iterate backwards to find new items efficiently
+        for (let i = sensorData.length - 1; i >= 0; i--) {
+            const item = sensorData[i];
+
+            // Stop if we reach the last processed item
+            if (lastProcessedRef.current &&
+                item.timestamp === lastProcessedRef.current.timestamp &&
+                item.machine_id === lastProcessedRef.current.machine_id) {
+                break;
+            }
+
+            // Map keys are unique, so we only keep the latest update for each machine from the batch
+            if (!updates.has(item.machine_id)) {
+                updates.set(item.machine_id, item);
+            }
+        }
+
+        if (updates.size > 0) {
+            // Update reference to the absolute last item we have
+            const lastItem = sensorData[sensorData.length - 1];
+            lastProcessedRef.current = {
+                timestamp: lastItem.timestamp,
+                machine_id: lastItem.machine_id
+            };
+
+            setMachines(prevMachines => prevMachines.map(m => {
+                if (updates.has(m.machine_id)) {
+                    const data = updates.get(m.machine_id);
+                    return {
+                        ...m,
+                        status: data.status || 'active',
+                        _lastUpdate: Date.now()
+                    };
+                }
+                return m;
+            }));
+        }
+    }, [sensorData]);
 
     const machineSensorData = selectedMachine
         ? sensorData.filter(d => d.machine_id === selectedMachine.machine_id)
@@ -101,6 +187,9 @@ export default function Dashboard() {
                     machines={machines}
                     selectedMachine={selectedMachine}
                     onSelectMachine={setSelectedMachine}
+                    hasMore={hasMoreMachines}
+                    onLoadMore={loadMoreMachines}
+                    loadingMore={loadingMore}
                 />
 
                 <main className="flex-1 p-6 overflow-y-auto" style={{ height: 'calc(100vh - 73px)' }}>
@@ -146,8 +235,8 @@ export default function Dashboard() {
                                     <span>🔧 {selectedMachine.sensor_type}</span>
                                     <span>•</span>
                                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${selectedMachine.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                            selectedMachine.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                        selectedMachine.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                                         }`}>
                                         {selectedMachine.status}
                                     </span>
