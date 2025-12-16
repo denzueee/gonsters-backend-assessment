@@ -157,10 +157,10 @@ export default function Charts({ data }) {
             </div>
 
             {/* Current Values */}
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-6">
                 <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-2 transition-all duration-300 ${isTempHigh ? 'border-red-500 dark:border-red-500 shadow-red-200 dark:shadow-red-900/50' :
-                        isTempLow ? 'border-orange-500 dark:border-orange-500 shadow-orange-200 dark:shadow-orange-900/50' :
-                            'border-gray-200 dark:border-gray-700'
+                    isTempLow ? 'border-orange-500 dark:border-orange-500 shadow-orange-200 dark:shadow-orange-900/50' :
+                        'border-gray-200 dark:border-gray-700'
                     }`}>
                     <div className="flex items-center justify-between">
                         <div className="text-sm text-gray-600 dark:text-gray-400">Temperature</div>
@@ -180,7 +180,7 @@ export default function Charts({ data }) {
                 </div>
 
                 <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-2 transition-all duration-300 ${isPressureHigh ? 'border-blue-500 dark:border-blue-500 shadow-blue-200 dark:shadow-blue-900/50' :
-                        'border-gray-200 dark:border-gray-700'
+                    'border-gray-200 dark:border-gray-700'
                     }`}>
                     <div className="flex items-center justify-between">
                         <div className="text-sm text-gray-600 dark:text-gray-400">Pressure</div>

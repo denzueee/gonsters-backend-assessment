@@ -156,12 +156,12 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            <History className="w-6 h-6" />
+                        <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <History className="w-5 h-5 md:w-6 md:h-6" />
                             Historical Data
                         </h2>
                         {machine && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
                                 {machine.name} • {machine.location}
                             </p>
                         )}
@@ -244,10 +244,11 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
                                     <h3 className="font-semibold text-gray-900 dark:text-white">Data Visualization</h3>
                                     <button
                                         onClick={downloadCSV}
-                                        className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                        className="flex items-center gap-2 px-3 py-2 text-xs md:text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
                                     >
-                                        <Download className="w-4 h-4" />
-                                        Export CSV
+                                        <Download className="w-3 h-3 md:w-4 md:h-4" />
+                                        <span className="hidden sm:inline">Export CSV</span>
+                                        <span className="sm:hidden">Export</span>
                                     </button>
                                 </div>
                                 <ResponsiveContainer width="100%" height={300}>

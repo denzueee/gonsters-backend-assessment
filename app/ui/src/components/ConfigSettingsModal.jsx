@@ -97,8 +97,8 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                 <Settings className="w-6 h-6" />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-bold">System Configuration</h2>
-                                <p className="text-primary-100 text-sm mt-1">
+                                <h2 className="text-xl md:text-2xl font-bold">System Configuration</h2>
+                                <p className="text-primary-100 text-xs md:text-sm mt-1">
                                     Manage alert thresholds and system settings
                                 </p>
                             </div>
@@ -157,7 +157,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                             Maximum Temperature (°C)
                                         </label>
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-col sm:flex-row gap-2">
                                             <input
                                                 type="number"
                                                 step="0.1"
@@ -185,7 +185,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                             Minimum Temperature (°C)
                                         </label>
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-col sm:flex-row gap-2">
                                             <input
                                                 type="number"
                                                 step="0.1"
@@ -222,7 +222,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                         Maximum Pressure (PSI)
                                     </label>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col sm:flex-row gap-2">
                                         <input
                                             type="number"
                                             step="0.1"
@@ -256,7 +256,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                             Alert Email
                                         </label>
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-col sm:flex-row gap-2">
                                             <input
                                                 type="email"
                                                 value={config.alert_email}
@@ -280,7 +280,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                             Data Retention (Days)
                                         </label>
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-col sm:flex-row gap-2">
                                             <input
                                                 type="number"
                                                 value={config.data_retention_days}
@@ -307,7 +307,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
 
                 {/* Footer */}
                 <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-850">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
                         <button
                             onClick={handleReset}
                             disabled={saving}
