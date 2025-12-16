@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Save, RotateCcw, Settings, AlertTriangle, Thermometer, Gauge } from 'lucide-react';
+import { X, Save, RotateCcw, Settings, AlertTriangle, Thermometer, Gauge, Clock } from 'lucide-react';
 import axios from 'axios';
 
 export default function ConfigSettingsModal({ show, onClose }) {
@@ -9,6 +9,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
         max_temperature_threshold: '80.0',
         min_temperature_threshold: '50.0',
         max_pressure_threshold: '150.0',
+        inactivity_timeout: '60',
         alert_email: 'alerts@factory.com',
         data_retention_days: '365',
     });
@@ -270,6 +271,45 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                     </div>
                                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
                                         Alert will trigger when pressure exceeds this value
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Monitoring Settings Section */}
+                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 rounded-xl p-5 border border-purple-200 dark:border-purple-900/50">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                                        Monitoring Settings
+                                    </h3>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                        Inactivity Timeout (Seconds)
+                                    </label>
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        <input
+                                            type="number"
+                                            value={config.inactivity_timeout}
+                                            onChange={(e) => handleChange('inactivity_timeout', e.target.value)}
+                                            className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white font-medium text-lg"
+                                        />
+                                        {hasChanges('inactivity_timeout') && (
+                                            <button
+                                                onClick={() =>
+                                                    handleSave('inactivity_timeout', config.inactivity_timeout)
+                                                }
+                                                disabled={saving}
+                                                className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium flex items-center gap-2 disabled:opacity-50"
+                                            >
+                                                <Save className="w-4 h-4" />
+                                                Save
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                                        Machine will be marked as "Inactive" if no data is received for this duration
                                     </p>
                                 </div>
                             </div>

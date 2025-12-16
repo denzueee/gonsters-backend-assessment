@@ -29,6 +29,7 @@ export default function Charts({ data }) {
                     max_temperature: parseFloat(config.max_temperature_threshold || 80),
                     min_temperature: parseFloat(config.min_temperature_threshold || 50),
                     max_pressure: parseFloat(config.max_pressure_threshold || 150),
+                    inactivity_timeout: parseFloat(config.inactivity_timeout || 60), // Detected inactive after N seconds
                 });
             } catch (error) {
                 console.error('Failed to fetch thresholds:', error);
@@ -58,6 +59,32 @@ export default function Charts({ data }) {
 
     const latestData = data[data.length - 1] || {};
 
+    const [isInactive, setIsInactive] = useState(false);
+
+    // Watchdog timer: Check if data is stale
+    useEffect(() => {
+        if (!latestData.timestamp) return;
+
+        const checkInactivity = () => {
+            const lastUpdate = new Date(latestData.timestamp).getTime();
+            const now = new Date().getTime();
+
+            const timeoutMs = (thresholds.inactivity_timeout || 60) * 1000;
+
+            if (now - lastUpdate > timeoutMs) {
+                setIsInactive(true);
+            } else {
+                setIsInactive(false);
+            }
+        };
+
+        // Check immediately and then intervals
+        checkInactivity();
+        const interval = setInterval(checkInactivity, 1000);
+
+        return () => clearInterval(interval);
+    }, [latestData, thresholds.inactivity_timeout]); // Dependency includes timeout setting
+
     // Check if current values exceed thresholds
     const isTempHigh = latestData.temperature > thresholds.max_temperature;
     const isTempLow = latestData.temperature < thresholds.min_temperature;
@@ -67,9 +94,23 @@ export default function Charts({ data }) {
         <div className="space-y-6">
             {/* Chart */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    Real-time Sensor Data
-                    <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-3">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        Real-time Sensor Data
+                        {isInactive && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 animate-pulse border border-gray-300 dark:border-gray-500">
+                                <span className="w-2 h-2 mr-1.5 rounded-full bg-gray-500"></span>
+                                Connection Inactive
+                            </span>
+                        )}
+                        {!isInactive && latestData.timestamp && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
+                                <span className="w-2 h-2 mr-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                Live
+                            </span>
+                        )}
+                    </div>
+                    <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
                         (Dotted lines = Safety thresholds)
                     </span>
                 </h3>
@@ -160,15 +201,17 @@ export default function Charts({ data }) {
             </div>
 
             {/* Current Values */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-6">
-                <div
-                    className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-2 transition-all duration-300 ${
-                        isTempHigh
-                            ? 'border-red-500 dark:border-red-500 shadow-red-200 dark:shadow-red-900/50'
-                            : isTempLow
-                              ? 'border-orange-500 dark:border-orange-500 shadow-orange-200 dark:shadow-orange-900/50'
-                              : 'border-gray-200 dark:border-gray-700'
+            <div
+                className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-6 ${isInactive ? 'opacity-70 grayscale transition-all duration-500' : 'transition-all duration-500'
                     }`}
+            >
+                <div
+                    className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-2 transition-all duration-300 ${isTempHigh
+                        ? 'border-red-500 dark:border-red-500 shadow-red-200 dark:shadow-red-900/50'
+                        : isTempLow
+                            ? 'border-orange-500 dark:border-orange-500 shadow-orange-200 dark:shadow-orange-900/50'
+                            : 'border-gray-200 dark:border-gray-700'
+                        }`}
                 >
                     <div className="flex items-center justify-between">
                         <div className="text-sm text-gray-600 dark:text-gray-400">Temperature</div>
@@ -179,9 +222,8 @@ export default function Charts({ data }) {
                         )}
                     </div>
                     <div
-                        className={`text-3xl font-bold mt-2 ${
-                            isTempHigh || isTempLow ? 'text-red-600 dark:text-red-400' : 'text-red-600'
-                        }`}
+                        className={`text-3xl font-bold mt-2 ${isTempHigh || isTempLow ? 'text-red-600 dark:text-red-400' : 'text-red-600'
+                            }`}
                     >
                         {latestData.temperature?.toFixed(1) || '--'} °C
                     </div>
@@ -191,11 +233,10 @@ export default function Charts({ data }) {
                 </div>
 
                 <div
-                    className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-2 transition-all duration-300 ${
-                        isPressureHigh
-                            ? 'border-blue-500 dark:border-blue-500 shadow-blue-200 dark:shadow-blue-900/50'
-                            : 'border-gray-200 dark:border-gray-700'
-                    }`}
+                    className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-2 transition-all duration-300 ${isPressureHigh
+                        ? 'border-blue-500 dark:border-blue-500 shadow-blue-200 dark:shadow-blue-900/50'
+                        : 'border-gray-200 dark:border-gray-700'
+                        }`}
                 >
                     <div className="flex items-center justify-between">
                         <div className="text-sm text-gray-600 dark:text-gray-400">Pressure</div>
@@ -206,9 +247,8 @@ export default function Charts({ data }) {
                         )}
                     </div>
                     <div
-                        className={`text-3xl font-bold mt-2 ${
-                            isPressureHigh ? 'text-blue-700 dark:text-blue-400' : 'text-blue-600'
-                        }`}
+                        className={`text-3xl font-bold mt-2 ${isPressureHigh ? 'text-blue-700 dark:text-blue-400' : 'text-blue-600'
+                            }`}
                     >
                         {latestData.pressure?.toFixed(1) || '--'} PSI
                     </div>

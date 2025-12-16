@@ -1,17 +1,34 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { useAuth } from './AuthContext';
 
 const WebSocketContext = createContext(null);
 
 export const WebSocketProvider = ({ children }) => {
+    const { user } = useAuth();
     const [socket, setSocket] = useState(null);
     const [connected, setConnected] = useState(false);
     const [sensorData, setSensorData] = useState([]);
     const [alerts, setAlerts] = useState([]);
 
     useEffect(() => {
+        // If no user, disconnect existing socket if any
+        if (!user) {
+            if (socket) {
+                socket.disconnect();
+                setSocket(null);
+                setConnected(false);
+            }
+            return;
+        }
+
         const token = localStorage.getItem('access_token');
         if (!token) return;
+
+        // Disconnect existing socket before creating new one (safety check)
+        if (socket) {
+            socket.disconnect();
+        }
 
         const newSocket = io('/', {
             query: { token },
@@ -58,7 +75,7 @@ export const WebSocketProvider = ({ children }) => {
         return () => {
             newSocket.disconnect();
         };
-    }, []);
+    }, [user]); // Re-run effect when user status changes (login/logout)
 
     // Request notification permission
     useEffect(() => {
