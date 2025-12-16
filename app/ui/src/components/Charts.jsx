@@ -29,7 +29,7 @@ export default function Charts({ data }) {
                     max_temperature: parseFloat(config.max_temperature_threshold || 80),
                     min_temperature: parseFloat(config.min_temperature_threshold || 50),
                     max_pressure: parseFloat(config.max_pressure_threshold || 150),
-                    inactivity_timeout: parseFloat(config.inactivity_timeout || 60), // Detected inactive after N seconds
+                    inactivity_timeout: parseFloat(config.inactivity_timeout || 3600), // Detected inactive after N seconds
                 });
             } catch (error) {
                 console.error('Failed to fetch thresholds:', error);

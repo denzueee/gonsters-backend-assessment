@@ -9,7 +9,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
         max_temperature_threshold: '80.0',
         min_temperature_threshold: '50.0',
         max_pressure_threshold: '150.0',
-        inactivity_timeout: '60',
+        inactivity_timeout: '3600',
         alert_email: 'alerts@factory.com',
         data_retention_days: '365',
     });
