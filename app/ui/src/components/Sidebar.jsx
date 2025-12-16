@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Search, Filter } from 'lucide-react';
 
 export default function Sidebar({
@@ -9,10 +9,18 @@ export default function Sidebar({
     hasMore,
     onLoadMore,
     loadingMore,
+    inactivityTimeout = 3600,
 }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [locationFilter, setLocationFilter] = useState('all');
+
+    // Force re-render periodically to update inactivity status visually
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const timer = setInterval(() => setTick(t => t + 1), 5000);
+        return () => clearInterval(timer);
+    }, []);
 
     const observer = useRef();
     const lastMachineRef = useCallback(
@@ -52,25 +60,45 @@ export default function Sidebar({
         }
     };
 
+    const isMachineInactive = (machine) => {
+        if (machine.status === 'inactive') return true;
+
+        const lastUpdate = machine._lastUpdate || (machine.last_seen ? new Date(machine.last_seen).getTime() : 0);
+        if (!lastUpdate) return true;
+
+        const elapsed = (Date.now() - lastUpdate) / 1000;
+        return elapsed > inactivityTimeout;
+    };
+
     const filteredMachines = machines.filter((machine) => {
         const matchesSearch =
             machine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             machine.location.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || machine.status?.toLowerCase() === statusFilter;
+
+        // IMPORTANT: Filter logic should respect the calculated inactivity too?
+        // If user selects "Inactive", they expect machines that act inactive.
+        // If user selects "Active", they expect truly active machines.
+
+        let machineStatus = machine.status?.toLowerCase();
+        if (isMachineInactive(machine)) {
+            machineStatus = 'inactive';
+        }
+
+        const matchesStatus = statusFilter === 'all' || machineStatus === statusFilter;
         const matchesLocation = locationFilter === 'all' || machine.location === locationFilter;
         return matchesSearch && matchesStatus && matchesLocation;
     });
 
     const uniqueLocations = [...new Set(machines.map((m) => m.location))];
 
-    const getStatusColor = (status) => {
-        switch (status?.toLowerCase()) {
+    const getStatusColor = (machine) => {
+        if (isMachineInactive(machine)) return 'bg-gray-500';
+
+        switch (machine.status?.toLowerCase()) {
             case 'active':
                 return 'bg-green-500';
             case 'maintenance':
                 return 'bg-yellow-500';
-            case 'inactive':
-                return 'bg-gray-500';
             default:
                 return 'bg-gray-400';
         }
@@ -139,14 +167,13 @@ export default function Sidebar({
                                 key={machine.machine_id}
                                 ref={isLast ? lastMachineRef : null}
                                 onClick={() => onSelectMachine(machine)}
-                                className={`w-full text-left p-3 rounded-lg border transition ${
-                                    selectedMachine?.machine_id === machine.machine_id
+                                className={`w-full text-left p-3 rounded-lg border transition ${selectedMachine?.machine_id === machine.machine_id
                                         ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-500'
                                         : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
-                                }`}
+                                    }`}
                             >
                                 <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${getStatusColor(machine.status)}`}></div>
+                                    <div className={`w-2 h-2 rounded-full ${getStatusColor(machine)}`}></div>
                                     <div className="font-medium text-gray-900 dark:text-white text-sm">
                                         {machine.name}
                                     </div>

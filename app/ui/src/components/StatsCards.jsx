@@ -1,11 +1,34 @@
+import { useState, useEffect } from 'react';
 import { Activity, TrendingUp, AlertTriangle, XCircle } from 'lucide-react';
 
-export default function StatsCards({ machines }) {
+export default function StatsCards({ machines, inactivityTimeout = 3600 }) {
+    // Force re-render periodically
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const timer = setInterval(() => setTick(t => t + 1), 5000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const isMachineInactive = (machine) => {
+        const status = machine.status?.toLowerCase();
+        if (status === 'inactive') return true;
+
+        // Maintenance overrides timeout logic (machine is intentionally stopped/worked on)
+        if (status === 'maintenance') return false;
+
+        const lastUpdate = machine._lastUpdate || (machine.last_seen ? new Date(machine.last_seen).getTime() : 0);
+        if (!lastUpdate) return true;
+
+        const elapsed = (Date.now() - lastUpdate) / 1000;
+        return elapsed > inactivityTimeout;
+    };
+
     const stats = {
         total: machines.length,
-        active: machines.filter((m) => m.status?.toLowerCase() === 'active').length,
+        active: machines.filter((m) => m.status?.toLowerCase() === 'active' && !isMachineInactive(m)).length,
         maintenance: machines.filter((m) => m.status?.toLowerCase() === 'maintenance').length,
-        inactive: machines.filter((m) => m.status?.toLowerCase() === 'inactive').length,
+        // Inactive includes explicitly inactive OR active-but-timed-out
+        inactive: machines.filter((m) => m.status?.toLowerCase() === 'inactive' || (m.status?.toLowerCase() === 'active' && isMachineInactive(m))).length,
     };
 
     const cards = [

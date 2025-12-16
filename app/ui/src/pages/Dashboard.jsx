@@ -105,6 +105,8 @@ export default function Dashboard() {
     const { connected, sensorData, alerts } = useWebSocket();
     const { user, logout } = useAuth();
 
+    const [inactivityTimeout, setInactivityTimeout] = useState(3600);
+
     useEffect(() => {
         fetchMachines(0, true);
 
@@ -114,6 +116,15 @@ export default function Dashboard() {
         if (isDark) {
             document.documentElement.classList.add('dark');
         }
+
+        // Fetch inactivity timeout
+        axios.get('/api/v1/config')
+            .then(res => {
+                if (res.data.config.inactivity_timeout) {
+                    setInactivityTimeout(parseFloat(res.data.config.inactivity_timeout));
+                }
+            })
+            .catch(console.error);
 
         // Force correct state based on screen width on mount
         if (window.innerWidth >= 1600) {
@@ -325,8 +336,8 @@ export default function Dashboard() {
                             hasMore={hasMoreMachines}
                             onLoadMore={loadMoreMachines}
                             loadingMore={loadingMore}
-                        />
-                    )}
+                            inactivityTimeout={inactivityTimeout}
+                        />)}
                 </aside>
 
                 {/* Main Content Area */}
@@ -399,7 +410,7 @@ export default function Dashboard() {
 
                     {/* Main Content with Padding */}
                     <div className="p-4 lg:p-6">
-                        <StatsCards machines={machines} />
+                        <StatsCards machines={machines} inactivityTimeout={inactivityTimeout} />
 
                         {/* Action Buttons */}
                         <div className="flex flex-wrap gap-2 lg:gap-4 my-4 lg:my-6">

@@ -19,6 +19,8 @@ export default function Charts({ data }) {
         max_pressure: 150,
     });
 
+    const [isInactive, setIsInactive] = useState(false);
+
     // Fetch thresholds from config
     useEffect(() => {
         const fetchThresholds = async () => {
@@ -38,6 +40,35 @@ export default function Charts({ data }) {
         fetchThresholds();
     }, []);
 
+    const latestData = (data && data.length > 0) ? data[data.length - 1] : {};
+
+    // Watchdog timer: Check if data is stale
+    useEffect(() => {
+        if (!latestData.timestamp) {
+            setIsInactive(false); // Reset if no data
+            return;
+        }
+
+        const checkInactivity = () => {
+            const lastUpdate = new Date(latestData.timestamp).getTime();
+            const now = new Date().getTime();
+
+            const timeoutMs = (thresholds.inactivity_timeout || 3600) * 1000;
+
+            if (now - lastUpdate > timeoutMs) {
+                setIsInactive(true);
+            } else {
+                setIsInactive(false);
+            }
+        };
+
+        // Check immediately and then intervals
+        checkInactivity();
+        const interval = setInterval(checkInactivity, 1000);
+
+        return () => clearInterval(interval);
+    }, [latestData, thresholds.inactivity_timeout]);
+
     if (!data || data.length === 0) {
         return (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
@@ -56,34 +87,6 @@ export default function Charts({ data }) {
         pressure: d.pressure,
         speed: d.speed,
     }));
-
-    const latestData = data[data.length - 1] || {};
-
-    const [isInactive, setIsInactive] = useState(false);
-
-    // Watchdog timer: Check if data is stale
-    useEffect(() => {
-        if (!latestData.timestamp) return;
-
-        const checkInactivity = () => {
-            const lastUpdate = new Date(latestData.timestamp).getTime();
-            const now = new Date().getTime();
-
-            const timeoutMs = (thresholds.inactivity_timeout || 60) * 1000;
-
-            if (now - lastUpdate > timeoutMs) {
-                setIsInactive(true);
-            } else {
-                setIsInactive(false);
-            }
-        };
-
-        // Check immediately and then intervals
-        checkInactivity();
-        const interval = setInterval(checkInactivity, 1000);
-
-        return () => clearInterval(interval);
-    }, [latestData, thresholds.inactivity_timeout]); // Dependency includes timeout setting
 
     // Check if current values exceed thresholds
     const isTempHigh = latestData.temperature > thresholds.max_temperature;
