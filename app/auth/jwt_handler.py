@@ -3,8 +3,10 @@ Modul JWT Handler
 Mengelola pembuatan dan verifikasi JSON Web Tokens untuk autentikasi
 """
 
-import jwt
 from datetime import datetime, timedelta
+
+import jwt
+
 from app.config import get_config
 
 config = get_config()

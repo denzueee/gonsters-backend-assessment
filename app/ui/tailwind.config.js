@@ -1,14 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-    content: [
-        "./index.html",
-        "./src/**/*.{js,ts,jsx,tsx}",
-    ],
+    content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
     darkMode: 'class',
     theme: {
         extend: {
             screens: {
-                'wide': '1600px',
+                wide: '1600px',
             },
             colors: {
                 primary: {
@@ -22,4 +19,4 @@ export default {
         },
     },
     plugins: [],
-}
+};

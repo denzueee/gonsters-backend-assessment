@@ -3,10 +3,11 @@ Model Metadata Mesin
 SQLAlchemy ORM model untuk tabel machine_metadata
 """
 
-from sqlalchemy import Column, String, DateTime, CheckConstraint
+import uuid
+
+from sqlalchemy import CheckConstraint, Column, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-import uuid
 
 from app.database.postgres import Base
 

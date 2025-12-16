@@ -45,12 +45,10 @@ export default function AlertPanel({ onClose }) {
         }
     };
 
-    const filteredAlerts = filter === 'all'
-        ? alerts
-        : alerts.filter(a => a.severity?.toLowerCase() === filter);
+    const filteredAlerts = filter === 'all' ? alerts : alerts.filter((a) => a.severity?.toLowerCase() === filter);
 
-    const criticalCount = alerts.filter(a => a.severity?.toLowerCase() === 'critical').length;
-    const warningCount = alerts.filter(a => a.severity?.toLowerCase() === 'warning').length;
+    const criticalCount = alerts.filter((a) => a.severity?.toLowerCase() === 'critical').length;
+    const warningCount = alerts.filter((a) => a.severity?.toLowerCase() === 'warning').length;
 
     return (
         <div className="h-full flex flex-col bg-white dark:bg-gray-800">
@@ -62,12 +60,8 @@ export default function AlertPanel({ onClose }) {
                             <Bell className="w-5 h-5 text-primary-600 dark:text-primary-400" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                                Alerts
-                            </h2>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                Real-time monitoring
-                            </p>
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Alerts</h2>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Real-time monitoring</p>
                         </div>
                     </div>
                     {alerts.length > 0 && (
@@ -101,28 +95,31 @@ export default function AlertPanel({ onClose }) {
                 <div className="flex gap-2 mt-3">
                     <button
                         onClick={() => setFilter('all')}
-                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all duration-200 ${filter === 'all'
-                            ? 'bg-primary-600 text-white shadow-sm'
-                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                            }`}
+                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all duration-200 ${
+                            filter === 'all'
+                                ? 'bg-primary-600 text-white shadow-sm'
+                                : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                        }`}
                     >
                         All ({alerts.length})
                     </button>
                     <button
                         onClick={() => setFilter('critical')}
-                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all duration-200 ${filter === 'critical'
-                            ? 'bg-red-600 text-white shadow-sm'
-                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                            }`}
+                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all duration-200 ${
+                            filter === 'critical'
+                                ? 'bg-red-600 text-white shadow-sm'
+                                : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                        }`}
                     >
                         Critical
                     </button>
                     <button
                         onClick={() => setFilter('warning')}
-                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all duration-200 ${filter === 'warning'
-                            ? 'bg-amber-600 text-white shadow-sm'
-                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                            }`}
+                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all duration-200 ${
+                            filter === 'warning'
+                                ? 'bg-amber-600 text-white shadow-sm'
+                                : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                        }`}
                     >
                         Warning
                     </button>
@@ -138,12 +135,12 @@ export default function AlertPanel({ onClose }) {
                             className={`p-3 rounded-lg border transition-all duration-200 ${getSeverityBg(alert.severity)}`}
                         >
                             <div className="flex items-start gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                    {getSeverityIcon(alert.severity)}
-                                </div>
+                                <div className="flex-shrink-0 mt-0.5">{getSeverityIcon(alert.severity)}</div>
                                 <div className="flex-1 min-w-0">
                                     {/* Alert Message */}
-                                    <div className={`font-semibold text-sm leading-snug mb-2 ${getSeverityTextColor(alert.severity)}`}>
+                                    <div
+                                        className={`font-semibold text-sm leading-snug mb-2 ${getSeverityTextColor(alert.severity)}`}
+                                    >
                                         {alert.message}
                                     </div>
 
@@ -151,7 +148,12 @@ export default function AlertPanel({ onClose }) {
                                     {alert.metric && (
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="text-xs font-medium text-gray-700 dark:text-gray-300 bg-white/50 dark:bg-gray-800/50 px-2 py-1 rounded">
-                                                {alert.value?.toFixed(1)} {alert.metric === 'temperature' ? '°C' : alert.metric === 'pressure' ? 'PSI' : ''}
+                                                {alert.value?.toFixed(1)}{' '}
+                                                {alert.metric === 'temperature'
+                                                    ? '°C'
+                                                    : alert.metric === 'pressure'
+                                                      ? 'PSI'
+                                                      : ''}
                                             </div>
                                             <span className="text-xs text-gray-500 dark:text-gray-400">
                                                 / {alert.threshold} {alert.metric === 'temperature' ? '°C' : 'PSI'}
@@ -176,13 +178,15 @@ export default function AlertPanel({ onClose }) {
                                     {/* Timestamp */}
                                     <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                                         <span>🕐</span>
-                                        <span>{new Date(alert.timestamp || Date.now()).toLocaleString('id-ID', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            second: '2-digit',
-                                            day: '2-digit',
-                                            month: 'short'
-                                        })}</span>
+                                        <span>
+                                            {new Date(alert.timestamp || Date.now()).toLocaleString('id-ID', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                                day: '2-digit',
+                                                month: 'short',
+                                            })}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -202,8 +206,7 @@ export default function AlertPanel({ onClose }) {
                         <p className="text-gray-500 dark:text-gray-400 text-xs max-w-xs">
                             {filter === 'all'
                                 ? 'All machines are operating within normal parameters'
-                                : `No ${filter} level alerts at this time`
-                            }
+                                : `No ${filter} level alerts at this time`}
                         </p>
                     </div>
                 )}

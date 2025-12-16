@@ -3,12 +3,13 @@ Flask Application Factory
 Initializes Flask app with database connections and routes
 """
 
-from flask import Flask
-from flask_cors import CORS
 import logging
 
+from flask import Flask
+from flask_cors import CORS
+
 from app.config import get_config
-from app.database import init_postgres_db, init_influxdb
+from app.database import init_influxdb, init_postgres_db
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -47,9 +48,10 @@ def create_app(config_name=None):
             # Initialize InfluxDB
             init_influxdb()
             logger.info("InfluxDB initialized")
-            
+
             # Initialize default system configuration
             from app.routes.config_routes import initialize_default_config
+
             initialize_default_config()
             logger.info("System configuration initialized")
 
@@ -59,11 +61,12 @@ def create_app(config_name=None):
 
     # Initialize SocketIO untuk real-time communication
     from app.websocket.websocket_handler import socketio
+
     socketio.init_app(app)
     logger.info("Flask-SocketIO initialized")
 
     # Register blueprints
-    from app.routes import data_bp, auth_bp, config_bp
+    from app.routes import auth_bp, config_bp, data_bp
 
     app.register_blueprint(data_bp)
     app.register_blueprint(auth_bp)

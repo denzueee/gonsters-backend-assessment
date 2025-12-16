@@ -7,7 +7,7 @@ export default function AddMachineModal({ show, onClose, onMachineAdded }) {
         name: '',
         location: '',
         sensor_type: 'Temperature',
-        status: 'active'
+        status: 'active',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');

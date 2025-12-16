@@ -1,6 +1,6 @@
 [flake8]
 max-line-length = 120
-exclude = 
+exclude =
     __pycache__,
     .git,
     .venv,
@@ -11,4 +11,6 @@ exclude =
 extend-ignore = E203, W503
 per-file-ignores =
     __init__.py:F401
+    tests/conftest.py:E402
+    tests/**/test_*.py:F401
 max-complexity = 10

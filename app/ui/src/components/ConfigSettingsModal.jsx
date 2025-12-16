@@ -10,7 +10,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
         min_temperature_threshold: '50.0',
         max_pressure_threshold: '150.0',
         alert_email: 'alerts@factory.com',
-        data_retention_days: '365'
+        data_retention_days: '365',
     });
     const [originalConfig, setOriginalConfig] = useState({});
     const [error, setError] = useState('');
@@ -44,7 +44,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
         try {
             await axios.post('/api/v1/config/update', {
                 setting_name: settingName,
-                setting_value: settingValue
+                setting_value: settingValue,
             });
             setSuccess(`${settingName} updated successfully!`);
             setOriginalConfig({ ...originalConfig, [settingName]: settingValue });
@@ -103,10 +103,7 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                 </p>
                             </div>
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                        >
+                        <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
                             <X className="w-6 h-6" />
                         </button>
                     </div>
@@ -128,8 +125,18 @@ export default function ConfigSettingsModal({ show, onClose }) {
                     {success && (
                         <div className="mb-4 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 rounded-lg flex items-start gap-3">
                             <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                <svg
+                                    className="w-3 h-3 text-white"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={3}
+                                        d="M5 13l4 4L19 7"
+                                    />
                                 </svg>
                             </div>
                             <div className="flex-1">
@@ -149,7 +156,9 @@ export default function ConfigSettingsModal({ show, onClose }) {
                             <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 rounded-xl p-5 border border-orange-200 dark:border-orange-900/50">
                                 <div className="flex items-center gap-2 mb-4">
                                     <Thermometer className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Temperature Thresholds</h3>
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                                        Temperature Thresholds
+                                    </h3>
                                 </div>
 
                                 <div className="space-y-4">
@@ -162,12 +171,19 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                                 type="number"
                                                 step="0.1"
                                                 value={config.max_temperature_threshold}
-                                                onChange={(e) => handleChange('max_temperature_threshold', e.target.value)}
+                                                onChange={(e) =>
+                                                    handleChange('max_temperature_threshold', e.target.value)
+                                                }
                                                 className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white font-medium text-lg"
                                             />
                                             {hasChanges('max_temperature_threshold') && (
                                                 <button
-                                                    onClick={() => handleSave('max_temperature_threshold', config.max_temperature_threshold)}
+                                                    onClick={() =>
+                                                        handleSave(
+                                                            'max_temperature_threshold',
+                                                            config.max_temperature_threshold
+                                                        )
+                                                    }
                                                     disabled={saving}
                                                     className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium flex items-center gap-2 disabled:opacity-50"
                                                 >
@@ -190,12 +206,19 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                                 type="number"
                                                 step="0.1"
                                                 value={config.min_temperature_threshold}
-                                                onChange={(e) => handleChange('min_temperature_threshold', e.target.value)}
+                                                onChange={(e) =>
+                                                    handleChange('min_temperature_threshold', e.target.value)
+                                                }
                                                 className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white font-medium text-lg"
                                             />
                                             {hasChanges('min_temperature_threshold') && (
                                                 <button
-                                                    onClick={() => handleSave('min_temperature_threshold', config.min_temperature_threshold)}
+                                                    onClick={() =>
+                                                        handleSave(
+                                                            'min_temperature_threshold',
+                                                            config.min_temperature_threshold
+                                                        )
+                                                    }
                                                     disabled={saving}
                                                     className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium flex items-center gap-2 disabled:opacity-50"
                                                 >
@@ -215,7 +238,9 @@ export default function ConfigSettingsModal({ show, onClose }) {
                             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 rounded-xl p-5 border border-blue-200 dark:border-blue-900/50">
                                 <div className="flex items-center gap-2 mb-4">
                                     <Gauge className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Pressure Threshold</h3>
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                                        Pressure Threshold
+                                    </h3>
                                 </div>
 
                                 <div>
@@ -232,7 +257,9 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                         />
                                         {hasChanges('max_pressure_threshold') && (
                                             <button
-                                                onClick={() => handleSave('max_pressure_threshold', config.max_pressure_threshold)}
+                                                onClick={() =>
+                                                    handleSave('max_pressure_threshold', config.max_pressure_threshold)
+                                                }
                                                 disabled={saving}
                                                 className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium flex items-center gap-2 disabled:opacity-50"
                                             >
@@ -289,7 +316,9 @@ export default function ConfigSettingsModal({ show, onClose }) {
                                             />
                                             {hasChanges('data_retention_days') && (
                                                 <button
-                                                    onClick={() => handleSave('data_retention_days', config.data_retention_days)}
+                                                    onClick={() =>
+                                                        handleSave('data_retention_days', config.data_retention_days)
+                                                    }
                                                     disabled={saving}
                                                     className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium flex items-center gap-2 disabled:opacity-50"
                                                 >

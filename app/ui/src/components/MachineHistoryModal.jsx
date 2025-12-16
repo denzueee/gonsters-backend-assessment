@@ -10,55 +10,58 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
 
     // Separate states for Table (paginated) and Chart (full range)
     const [historicalData, setHistoricalData] = useState([]); // Table data
-    const [fullChartData, setFullChartData] = useState([]);   // Chart data
+    const [fullChartData, setFullChartData] = useState([]); // Chart data
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [dateRange, setDateRange] = useState({
         start_time: new Date(new Date().setHours(new Date().getHours() - 24)).toISOString().slice(0, 16),
         end_time: new Date().toISOString().slice(0, 16),
-        interval: 'raw'
+        interval: 'raw',
     });
 
     // Fetch Table Data (Paginated)
-    const fetchTableData = useCallback(async (currentOffset = 0, isReset = false) => {
-        if (!machine) return;
+    const fetchTableData = useCallback(
+        async (currentOffset = 0, isReset = false) => {
+            if (!machine) return;
 
-        setLoading(true);
-        setError('');
+            setLoading(true);
+            setError('');
 
-        try {
-            const params = {
-                start_time: new Date(dateRange.start_time).toISOString(),
-                end_time: new Date(dateRange.end_time).toISOString(),
-                interval: dateRange.interval,
-                fields: 'all',
-                limit: 10,
-                offset: currentOffset
-            };
+            try {
+                const params = {
+                    start_time: new Date(dateRange.start_time).toISOString(),
+                    end_time: new Date(dateRange.end_time).toISOString(),
+                    interval: dateRange.interval,
+                    fields: 'all',
+                    limit: 10,
+                    offset: currentOffset,
+                };
 
-            const response = await axios.get(`/api/v1/data/machine/${machine.machine_id}`, { params });
+                const response = await axios.get(`/api/v1/data/machine/${machine.machine_id}`, { params });
 
-            if (response.data.status === 'success') {
-                const newData = response.data.data;
-                const pagination = response.data.pagination;
+                if (response.data.status === 'success') {
+                    const newData = response.data.data;
+                    const pagination = response.data.pagination;
 
-                if (isReset) {
-                    setHistoricalData(newData);
-                } else {
-                    setHistoricalData(prev => [...prev, ...newData]);
+                    if (isReset) {
+                        setHistoricalData(newData);
+                    } else {
+                        setHistoricalData((prev) => [...prev, ...newData]);
+                    }
+
+                    setHasMore(pagination.has_more);
+                    setOffset(currentOffset + 10);
                 }
-
-                setHasMore(pagination.has_more);
-                setOffset(currentOffset + 10);
+            } catch (err) {
+                setError(err.response?.data?.message || 'Failed to fetch historical data');
+            } finally {
+                setLoading(false);
+                setIsInitialLoad(false);
             }
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to fetch historical data');
-        } finally {
-            setLoading(false);
-            setIsInitialLoad(false);
-        }
-    }, [machine, dateRange]);
+        },
+        [machine, dateRange]
+    );
 
     // Fetch Chart Data (Full Range, Unlimited)
     const fetchChartData = useCallback(async () => {
@@ -71,7 +74,7 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
                 interval: dateRange.interval,
                 fields: 'all',
                 limit: -1, // Unlimited (handled by backend)
-                offset: 0
+                offset: 0,
             };
 
             const response = await axios.get(`/api/v1/data/machine/${machine.machine_id}`, { params });
@@ -86,18 +89,21 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
 
     // Infinite Scroll Refs
     const observer = useRef();
-    const lastElementRef = useCallback(node => {
-        if (loading) return;
-        if (observer.current) observer.current.disconnect();
+    const lastElementRef = useCallback(
+        (node) => {
+            if (loading) return;
+            if (observer.current) observer.current.disconnect();
 
-        observer.current = new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting && hasMore) {
-                fetchTableData(offset, false);
-            }
-        });
+            observer.current = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting && hasMore) {
+                    fetchTableData(offset, false);
+                }
+            });
 
-        if (node) observer.current.observe(node);
-    }, [loading, hasMore, offset, fetchTableData]);
+            if (node) observer.current.observe(node);
+        },
+        [loading, hasMore, offset, fetchTableData]
+    );
 
     useEffect(() => {
         if (show && machine) {
@@ -121,17 +127,9 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
         const exportData = fullChartData.length > 0 ? fullChartData : historicalData;
 
         const headers = ['Timestamp', 'Temperature (°C)', 'Pressure (kPa)', 'Speed (RPM)'];
-        const rows = exportData.map(d => [
-            d.timestamp,
-            d.temperature || '',
-            d.pressure || '',
-            d.speed || ''
-        ]);
+        const rows = exportData.map((d) => [d.timestamp, d.temperature || '', d.pressure || '', d.speed || '']);
 
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.join(','))
-        ].join('\n');
+        const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
@@ -142,11 +140,11 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
     };
 
     // Prepare Chart Data (Chronological)
-    const chartData = [...fullChartData].reverse().map(d => ({
+    const chartData = [...fullChartData].reverse().map((d) => ({
         time: new Date(d.timestamp).toLocaleTimeString(),
         temperature: d.temperature,
         pressure: d.pressure,
-        speed: d.speed
+        speed: d.speed,
     }));
 
     if (!show) return null;
@@ -186,7 +184,9 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
-                                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Start Time</label>
+                                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                                    Start Time
+                                </label>
                                 <input
                                     type="datetime-local"
                                     value={dateRange.start_time}
@@ -256,11 +256,35 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
                                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
                                         <XAxis dataKey="time" stroke="#9CA3AF" style={{ fontSize: '12px' }} />
                                         <YAxis stroke="#9CA3AF" style={{ fontSize: '12px' }} />
-                                        <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: '#1f2937',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                            }}
+                                        />
                                         <Legend />
-                                        <Line type="monotone" dataKey="temperature" stroke="#EF4444" name="Temp (°C)" dot={false} />
-                                        <Line type="monotone" dataKey="pressure" stroke="#3B82F6" name="Pressure (kPa)" dot={false} />
-                                        <Line type="monotone" dataKey="speed" stroke="#10B981" name="Speed (RPM)" dot={false} />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="temperature"
+                                            stroke="#EF4444"
+                                            name="Temp (°C)"
+                                            dot={false}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="pressure"
+                                            stroke="#3B82F6"
+                                            name="Pressure (kPa)"
+                                            dot={false}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="speed"
+                                            stroke="#10B981"
+                                            name="Speed (RPM)"
+                                            dot={false}
+                                        />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>
@@ -272,10 +296,18 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
                                         <table className="w-full">
                                             <thead className="bg-gray-50 dark:bg-gray-900">
                                                 <tr>
-                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Timestamp</th>
-                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Temperature (°C)</th>
-                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Pressure (kPa)</th>
-                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Speed (RPM)</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                                                        Timestamp
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                                                        Temperature (°C)
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                                                        Pressure (kPa)
+                                                    </th>
+                                                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                                                        Speed (RPM)
+                                                    </th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -302,7 +334,9 @@ export default function MachineHistoryModal({ show, onClose, machine }) {
                                                             {loading && (
                                                                 <div className="flex justify-center items-center gap-2">
                                                                     <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
-                                                                    <span className="text-sm text-gray-400">Loading more...</span>
+                                                                    <span className="text-sm text-gray-400">
+                                                                        Loading more...
+                                                                    </span>
                                                                 </div>
                                                             )}
                                                         </td>

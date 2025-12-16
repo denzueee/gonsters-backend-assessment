@@ -1,24 +1,35 @@
 import { useState, useRef, useCallback } from 'react';
 import { Search, Filter } from 'lucide-react';
 
-export default function Sidebar({ machines, selectedMachine, onSelectMachine, onFilterChange, hasMore, onLoadMore, loadingMore }) {
+export default function Sidebar({
+    machines,
+    selectedMachine,
+    onSelectMachine,
+    onFilterChange,
+    hasMore,
+    onLoadMore,
+    loadingMore,
+}) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [locationFilter, setLocationFilter] = useState('all');
 
     const observer = useRef();
-    const lastMachineRef = useCallback(node => {
-        if (loadingMore) return;
-        if (observer.current) observer.current.disconnect();
+    const lastMachineRef = useCallback(
+        (node) => {
+            if (loadingMore) return;
+            if (observer.current) observer.current.disconnect();
 
-        observer.current = new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting && hasMore) {
-                if (onLoadMore) onLoadMore();
-            }
-        });
+            observer.current = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting && hasMore) {
+                    if (onLoadMore) onLoadMore();
+                }
+            });
 
-        if (node) observer.current.observe(node);
-    }, [loadingMore, hasMore, onLoadMore]);
+            if (node) observer.current.observe(node);
+        },
+        [loadingMore, hasMore, onLoadMore]
+    );
 
     const handleSearchChange = (value) => {
         setSearchTerm(value);
@@ -41,22 +52,27 @@ export default function Sidebar({ machines, selectedMachine, onSelectMachine, on
         }
     };
 
-    const filteredMachines = machines.filter(machine => {
-        const matchesSearch = machine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const filteredMachines = machines.filter((machine) => {
+        const matchesSearch =
+            machine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             machine.location.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'all' || machine.status?.toLowerCase() === statusFilter;
         const matchesLocation = locationFilter === 'all' || machine.location === locationFilter;
         return matchesSearch && matchesStatus && matchesLocation;
     });
 
-    const uniqueLocations = [...new Set(machines.map(m => m.location))];
+    const uniqueLocations = [...new Set(machines.map((m) => m.location))];
 
     const getStatusColor = (status) => {
         switch (status?.toLowerCase()) {
-            case 'active': return 'bg-green-500';
-            case 'maintenance': return 'bg-yellow-500';
-            case 'inactive': return 'bg-gray-500';
-            default: return 'bg-gray-400';
+            case 'active':
+                return 'bg-green-500';
+            case 'maintenance':
+                return 'bg-yellow-500';
+            case 'inactive':
+                return 'bg-gray-500';
+            default:
+                return 'bg-gray-400';
         }
     };
 
@@ -106,8 +122,10 @@ export default function Sidebar({ machines, selectedMachine, onSelectMachine, on
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                     >
                         <option value="all">All Locations</option>
-                        {uniqueLocations.map(loc => (
-                            <option key={loc} value={loc}>{loc}</option>
+                        {uniqueLocations.map((loc) => (
+                            <option key={loc} value={loc}>
+                                {loc}
+                            </option>
                         ))}
                     </select>
                 </div>
@@ -121,17 +139,22 @@ export default function Sidebar({ machines, selectedMachine, onSelectMachine, on
                                 key={machine.machine_id}
                                 ref={isLast ? lastMachineRef : null}
                                 onClick={() => onSelectMachine(machine)}
-                                className={`w-full text-left p-3 rounded-lg border transition ${selectedMachine?.machine_id === machine.machine_id
-                                    ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-500'
-                                    : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
-                                    }`}
+                                className={`w-full text-left p-3 rounded-lg border transition ${
+                                    selectedMachine?.machine_id === machine.machine_id
+                                        ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-500'
+                                        : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                }`}
                             >
                                 <div className="flex items-center gap-2">
                                     <div className={`w-2 h-2 rounded-full ${getStatusColor(machine.status)}`}></div>
-                                    <div className="font-medium text-gray-900 dark:text-white text-sm">{machine.name}</div>
+                                    <div className="font-medium text-gray-900 dark:text-white text-sm">
+                                        {machine.name}
+                                    </div>
                                 </div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{machine.location}</div>
-                                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{machine.sensor_type}</div>
+                                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                    {machine.sensor_type}
+                                </div>
                             </button>
                         );
                     })}
@@ -144,9 +167,7 @@ export default function Sidebar({ machines, selectedMachine, onSelectMachine, on
                 </div>
 
                 {filteredMachines.length === 0 && (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
-                        No machines found
-                    </div>
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">No machines found</div>
                 )}
             </div>
         </div>

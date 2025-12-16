@@ -15,10 +15,13 @@ export default function Header({ user, connected, darkMode, toggleDarkMode, onLo
                 {/* Right side controls */}
                 <div className="flex items-center gap-2 lg:gap-6">
                     {/* Connection status - Hide text on mobile */}
-                    <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm ${connected
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
-                        }`}>
+                    <div
+                        className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm ${
+                            connected
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                        }`}
+                    >
                         <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
                         <span className="hidden sm:inline">{connected ? 'Connected' : 'Disconnected'}</span>
                     </div>

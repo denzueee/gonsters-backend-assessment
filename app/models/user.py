@@ -2,17 +2,17 @@
 Model User untuk autentikasi dan RBAC
 """
 
-from sqlalchemy import Column, String, Boolean, DateTime, CheckConstraint
+import uuid
+
+import bcrypt
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-import uuid
-import bcrypt
 
 from app.database import Base
 
 
 class User(Base):
-
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
@@ -101,7 +101,6 @@ class User(Base):
 
 
 class AuditLog(Base):
-
     __tablename__ = "audit_logs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)

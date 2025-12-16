@@ -3,16 +3,17 @@ Authentication routes
 Handles user registration, login, token refresh, and logout
 """
 
-from flask import Blueprint, request, jsonify, g
-from pydantic import ValidationError
-from datetime import datetime
 import logging
+from datetime import datetime
 
-from app.database import get_db, blacklist_token
-from app.models import User
-from app.schemas import RegisterRequest, LoginRequest, RefreshTokenRequest
-from app.auth import create_access_token, create_refresh_token, verify_token, require_auth, log_audit
+from flask import Blueprint, g, jsonify, request
+from pydantic import ValidationError
+
+from app.auth import create_access_token, create_refresh_token, log_audit, require_auth, verify_token
 from app.config import get_config
+from app.database import blacklist_token, get_db
+from app.models import User
+from app.schemas import LoginRequest, RefreshTokenRequest, RegisterRequest
 
 bp = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
 logger = logging.getLogger(__name__)

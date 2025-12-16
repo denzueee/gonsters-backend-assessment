@@ -81,7 +81,10 @@ export default function Login() {
                     </form>
 
                     <div className="mt-6 text-center text-sm text-gray-400">
-                        <p>Default: <code className="bg-white/10 px-2 py-1 rounded">manager1</code> / <code className="bg-white/10 px-2 py-1 rounded">Password123!</code></p>
+                        <p>
+                            Default: <code className="bg-white/10 px-2 py-1 rounded">manager1</code> /{' '}
+                            <code className="bg-white/10 px-2 py-1 rounded">Password123!</code>
+                        </p>
                     </div>
                 </div>
             </div>

@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 120
-target-version = ['py311']
+target-version = ['py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -46,3 +46,14 @@ omit = [
 precision = 2
 show_missing = true
 skip_covered = false
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_gitignore = true
+known_first_party = ["app"]
+skip = ["migrations", "venv", ".venv", "htmlcov"]
+
+[tool.bandit]
+exclude_dirs = ["tests", "migrations", "venv", ".venv", "htmlcov"]
+skips = ["B101", "B104", "B106", "B107", "B311", "B601"]

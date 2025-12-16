@@ -79,7 +79,7 @@ export default function Dashboard() {
 
     // Toggle handlers with persistence
     const toggleLeftSidebar = () => {
-        setLeftSidebarOpen(prev => {
+        setLeftSidebarOpen((prev) => {
             const newState = !prev;
             localStorage.setItem('leftSidebarOpen', JSON.stringify(newState));
             return newState;
@@ -87,7 +87,7 @@ export default function Dashboard() {
     };
 
     const toggleRightSidebar = () => {
-        setRightSidebarOpen(prev => {
+        setRightSidebarOpen((prev) => {
             const newState = !prev;
             localStorage.setItem('rightSidebarOpen', JSON.stringify(newState));
             return newState;
@@ -153,7 +153,7 @@ export default function Dashboard() {
 
             const params = {
                 limit: 10,
-                offset: currentOffset
+                offset: currentOffset,
             };
 
             const response = await axios.get('/api/v1/data/machines', { params });
@@ -166,10 +166,10 @@ export default function Dashboard() {
                     setSelectedMachine(newMachines[0]);
                 }
             } else {
-                setMachines(prev => {
+                setMachines((prev) => {
                     // Filter duplicates
-                    const existingIds = new Set(prev.map(m => m.machine_id));
-                    const uniqueNewMachines = newMachines.filter(m => !existingIds.has(m.machine_id));
+                    const existingIds = new Set(prev.map((m) => m.machine_id));
+                    const uniqueNewMachines = newMachines.filter((m) => !existingIds.has(m.machine_id));
                     return [...prev, ...uniqueNewMachines];
                 });
             }
@@ -181,7 +181,6 @@ export default function Dashboard() {
                 // Fallback if pagination object missing (shouldn't happen with new backend)
                 setHasMoreMachines(false);
             }
-
         } catch (error) {
             console.error('Failed to fetch machines:', error);
         } finally {
@@ -231,9 +230,11 @@ export default function Dashboard() {
             const item = sensorData[i];
 
             // Stop if we reach the last processed item
-            if (lastProcessedRef.current &&
+            if (
+                lastProcessedRef.current &&
                 item.timestamp === lastProcessedRef.current.timestamp &&
-                item.machine_id === lastProcessedRef.current.machine_id) {
+                item.machine_id === lastProcessedRef.current.machine_id
+            ) {
                 break;
             }
 
@@ -248,25 +249,27 @@ export default function Dashboard() {
             const lastItem = sensorData[sensorData.length - 1];
             lastProcessedRef.current = {
                 timestamp: lastItem.timestamp,
-                machine_id: lastItem.machine_id
+                machine_id: lastItem.machine_id,
             };
 
-            setMachines(prevMachines => prevMachines.map(m => {
-                if (updates.has(m.machine_id)) {
-                    const data = updates.get(m.machine_id);
-                    return {
-                        ...m,
-                        status: data.status || 'active',
-                        _lastUpdate: Date.now()
-                    };
-                }
-                return m;
-            }));
+            setMachines((prevMachines) =>
+                prevMachines.map((m) => {
+                    if (updates.has(m.machine_id)) {
+                        const data = updates.get(m.machine_id);
+                        return {
+                            ...m,
+                            status: data.status || 'active',
+                            _lastUpdate: Date.now(),
+                        };
+                    }
+                    return m;
+                })
+            );
         }
     }, [sensorData]);
 
     const machineSensorData = selectedMachine
-        ? sensorData.filter(d => d.machine_id === selectedMachine.machine_id)
+        ? sensorData.filter((d) => d.machine_id === selectedMachine.machine_id)
         : [];
 
     if (loading) {
@@ -335,11 +338,21 @@ export default function Dashboard() {
                             <button
                                 onClick={toggleLeftSidebar}
                                 className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
-                                title={leftSidebarOpen ? "Close Machines Panel" : "Open Machines Panel"}
-                                aria-label={leftSidebarOpen ? "Close sidebar" : "Open sidebar"}
+                                title={leftSidebarOpen ? 'Close Machines Panel' : 'Open Machines Panel'}
+                                aria-label={leftSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
                             >
-                                <svg className="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                <svg
+                                    className="w-6 h-6 text-gray-700 dark:text-gray-300"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M4 6h16M4 12h16M4 18h16"
+                                    />
                                 </svg>
                             </button>
 
@@ -359,11 +372,21 @@ export default function Dashboard() {
                             <button
                                 onClick={toggleRightSidebar}
                                 className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0 relative"
-                                title={rightSidebarOpen ? "Close Alerts Panel" : "Open Alerts Panel"}
-                                aria-label={rightSidebarOpen ? "Close alerts" : "Open alerts"}
+                                title={rightSidebarOpen ? 'Close Alerts Panel' : 'Open Alerts Panel'}
+                                aria-label={rightSidebarOpen ? 'Close alerts' : 'Open alerts'}
                             >
-                                <svg className="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                <svg
+                                    className="w-6 h-6 text-gray-700 dark:text-gray-300"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                                    />
                                 </svg>
                                 {alerts.length > 0 && (
                                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs min-w-[20px] h-5 rounded-full flex items-center justify-center font-bold px-1">
@@ -418,7 +441,13 @@ export default function Dashboard() {
                                     <div className="text-xs lg:text-sm text-primary-900 dark:text-primary-100">
                                         📡 Real-time: {machineSensorData.length} data points received
                                         {machineSensorData.length > 0 && (
-                                            <span className="hidden sm:inline"> • Last update: {new Date(machineSensorData[machineSensorData.length - 1].timestamp).toLocaleTimeString()}</span>
+                                            <span className="hidden sm:inline">
+                                                {' '}
+                                                • Last update:{' '}
+                                                {new Date(
+                                                    machineSensorData[machineSensorData.length - 1].timestamp
+                                                ).toLocaleTimeString()}
+                                            </span>
                                         )}
                                     </div>
                                 </div>
@@ -464,10 +493,7 @@ export default function Dashboard() {
                 machine={selectedMachine}
             />
 
-            <ConfigSettingsModal
-                show={showConfigSettings}
-                onClose={() => setShowConfigSettings(false)}
-            />
+            <ConfigSettingsModal show={showConfigSettings} onClose={() => setShowConfigSettings(false)} />
         </div>
     );
 }

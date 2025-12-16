@@ -4,6 +4,7 @@ Menangani environment variables dan pengaturan koneksi database
 """
 
 import os
+
 from dotenv import load_dotenv
 
 # Load environment variables dari file .env
@@ -11,7 +12,6 @@ load_dotenv()
 
 
 class Config:
-
     # Konfigurasi Flask
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
     FLASK_ENV = os.getenv("FLASK_ENV", "development")

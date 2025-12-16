@@ -3,8 +3,10 @@ Modul Koneksi Redis
 Menangani koneksi dan operasi dasar caching dengan Redis
 """
 
-import redis
 import logging
+
+import redis
+
 from app.config import get_config
 
 logger = logging.getLogger(__name__)
@@ -15,17 +17,17 @@ redis_client = None
 def init_redis():
     """
     Inisialisasi koneksi Redis dengan retry logic
-    
+
     Returns:
         Redis: Client Redis atau None jika gagal
     """
     global redis_client
     config = get_config()
-    
+
     # Retry dengan exponential backoff
     max_retries = 2
     base_timeout = 2
-    
+
     for attempt in range(max_retries):
         try:
             timeout = base_timeout * (attempt + 1)  # 2s, 4s
@@ -51,7 +53,7 @@ def init_redis():
         except Exception as e:
             logger.error(f"Unexpected error connecting to Redis: {e}")
             return None
-    
+
     return None
 
 

@@ -42,22 +42,22 @@ run_tests() {
     echo "========================================="
     echo "Running Test Suite"
     echo "========================================="
-    
+
     # Check if containers are running
     if ! sudo docker ps | grep -q gonsters-backend; then
         echo "Error: Containers are not running"
         echo "Please start environment first with: ./scripts/run.sh dev or ./scripts/run.sh prod"
         exit 1
     fi
-    
+
     # Create test database if it doesn't exist
     echo "Setting up test database..."
     sudo docker exec gonsters-postgres psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'gonsters_test_db'" | grep -q 1 || \
         sudo docker exec gonsters-postgres psql -U postgres -c "CREATE DATABASE gonsters_test_db;"
-    
+
     # Get InfluxDB token from running container
     INFLUX_TOKEN=$(sudo docker exec gonsters-influxdb printenv DOCKER_INFLUXDB_INIT_ADMIN_TOKEN)
-    
+
     # Run tests with proper environment variables
     echo ""
     echo "Running test suite..."
@@ -68,9 +68,9 @@ run_tests() {
       -e INFLUXDB_INIT_ADMIN_TOKEN="$INFLUX_TOKEN" \
       gonsters-backend \
       pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=html
-    
+
     TEST_EXIT_CODE=$?
-    
+
     echo ""
     echo "========================================="
     if [ $TEST_EXIT_CODE -eq 0 ]; then
@@ -79,7 +79,7 @@ run_tests() {
         echo "Some tests failed (Exit code: $TEST_EXIT_CODE)"
     fi
     echo "========================================="
-    
+
     return $TEST_EXIT_CODE
 }
 
@@ -88,13 +88,13 @@ run_dev() {
         run_tests
         exit $?
     fi
-    
+
     echo "Starting Development Environment..."
     generate_keys
-    
+
     echo "Building and starting containers..."
     sudo docker-compose --env-file .env -f "$DOCKER_DIR/docker-compose.yml" up -d --build
-    
+
     echo "Dev environment running at http://localhost:5000"
 }
 
@@ -103,16 +103,16 @@ run_prod() {
         run_tests
         exit $?
     fi
-    
+
     echo "Deploying Production Environment..."
     generate_keys
-    
+
     echo "Pulling latest images..."
     sudo docker-compose -f "$DOCKER_DIR/docker-compose.prod.yml" pull
-    
+
     echo "Starting production containers..."
     sudo docker-compose -f "$DOCKER_DIR/docker-compose.prod.yml" up -d
-    
+
     echo "Production deployment successful."
 }
 

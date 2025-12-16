@@ -15,7 +15,7 @@ export const WebSocketProvider = ({ children }) => {
 
         const newSocket = io('/', {
             query: { token },
-            transports: ['websocket', 'polling']
+            transports: ['websocket', 'polling'],
         });
 
         newSocket.on('connect', () => {
@@ -30,14 +30,14 @@ export const WebSocketProvider = ({ children }) => {
         });
 
         newSocket.on('sensor_data', (data) => {
-            setSensorData(prev => {
+            setSensorData((prev) => {
                 const newData = [...prev, data].slice(-1000); // Keep last 1000 points
                 return newData;
             });
         });
 
         newSocket.on('alert', (alert) => {
-            setAlerts(prev => [alert, ...prev].slice(0, 50)); // Keep last 50 alerts
+            setAlerts((prev) => [alert, ...prev].slice(0, 50)); // Keep last 50 alerts
 
             // Play sound for critical and warning alerts
             if (alert.severity === 'critical' || alert.severity === 'warning') {
@@ -48,7 +48,7 @@ export const WebSocketProvider = ({ children }) => {
             if (Notification.permission === 'granted') {
                 new Notification('GONSTERS Alert', {
                     body: alert.message,
-                    icon: '/vite.svg'
+                    icon: '/vite.svg',
                 });
             }
         });
@@ -88,7 +88,7 @@ export const WebSocketProvider = ({ children }) => {
             oscillator.type = 'sine';
 
             for (let i = 0; i < beepCount; i++) {
-                const startTime = audioContext.currentTime + (i * beepInterval);
+                const startTime = audioContext.currentTime + i * beepInterval;
                 const endTime = startTime + beepDuration;
 
                 gainNode.gain.setValueAtTime(0, startTime);
@@ -97,7 +97,7 @@ export const WebSocketProvider = ({ children }) => {
             }
 
             oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + (beepCount * beepInterval) + 0.1);
+            oscillator.stop(audioContext.currentTime + beepCount * beepInterval + 0.1);
         } catch (error) {
             console.error('Audio playback failed:', error);
         }

@@ -2,8 +2,9 @@
 Pydantic schemas untuk autentikasi
 """
 
-from pydantic import BaseModel, Field, EmailStr, validator
 from typing import List, Optional
+
+from pydantic import BaseModel, EmailStr, Field, validator
 
 
 class RegisterRequest(BaseModel):

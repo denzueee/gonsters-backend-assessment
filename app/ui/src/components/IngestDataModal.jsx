@@ -8,7 +8,7 @@ export default function IngestDataModal({ show, onClose, machines, onDataIngeste
         machine_id: '',
         temperature: '',
         pressure: '',
-        speed: ''
+        speed: '',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -21,7 +21,7 @@ export default function IngestDataModal({ show, onClose, machines, onDataIngeste
         setLoading(true);
 
         try {
-            const selectedMachine = machines.find(m => m.machine_id === formData.machine_id);
+            const selectedMachine = machines.find((m) => m.machine_id === formData.machine_id);
 
             // Postman format
             const payload = {
@@ -37,18 +37,24 @@ export default function IngestDataModal({ show, onClose, machines, onDataIngeste
                                 timestamp: new Date().toISOString(),
                                 temperature: formData.temperature ? parseFloat(formData.temperature) : null,
                                 pressure: formData.pressure ? parseFloat(formData.pressure) : null,
-                                speed: formData.speed ? parseFloat(formData.speed) : null
-                            }
-                        ]
-                    }
-                ]
+                                speed: formData.speed ? parseFloat(formData.speed) : null,
+                            },
+                        ],
+                    },
+                ],
             };
 
             const response = await axios.post('/api/v1/data/ingest', payload);
 
             if (response.data.status === 'success') {
                 setSuccess(`Successfully ingested ${response.data.summary.total_readings} reading(s)`);
-                setFormData({ gateway_id: 'Dashboard-Manual', machine_id: '', temperature: '', pressure: '', speed: '' });
+                setFormData({
+                    gateway_id: 'Dashboard-Manual',
+                    machine_id: '',
+                    temperature: '',
+                    pressure: '',
+                    speed: '',
+                });
 
                 if (onDataIngested) onDataIngested(response.data);
 
@@ -103,7 +109,7 @@ export default function IngestDataModal({ show, onClose, machines, onDataIngeste
                             required
                         >
                             <option value="">-- Select Machine --</option>
-                            {machines.map(machine => (
+                            {machines.map((machine) => (
                                 <option key={machine.machine_id} value={machine.machine_id}>
                                     {machine.name} ({machine.location})
                                 </option>
@@ -171,7 +177,11 @@ export default function IngestDataModal({ show, onClose, machines, onDataIngeste
                         </button>
                         <button
                             type="submit"
-                            disabled={loading || !formData.machine_id || (!formData.temperature && !formData.pressure && !formData.speed)}
+                            disabled={
+                                loading ||
+                                !formData.machine_id ||
+                                (!formData.temperature && !formData.pressure && !formData.speed)
+                            }
                             className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-400 transition"
                         >
                             {loading ? 'Ingesting...' : 'Ingest Data'}

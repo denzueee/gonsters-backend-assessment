@@ -4,15 +4,16 @@ Demonstrates RBAC with Management-only access
 Uses PostgreSQL database for persistent configuration storage
 """
 
-from flask import Blueprint, request, jsonify, g
-from pydantic import ValidationError
 import logging
 
-from app.auth import require_auth, require_permission, log_audit, log_successful_request
-from app.schemas import ConfigUpdateRequest
-from app.utils import cache_response, invalidate_cache
+from flask import Blueprint, g, jsonify, request
+from pydantic import ValidationError
+
+from app.auth import log_audit, log_successful_request, require_auth, require_permission
 from app.database import get_db
 from app.models import SystemConfig
+from app.schemas import ConfigUpdateRequest
+from app.utils import cache_response, invalidate_cache
 
 bp = Blueprint("config", __name__, url_prefix="/api/v1/config")
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ def initialize_default_config():
                         setting_name=setting_name,
                         setting_value=setting_value,
                         description=f"Default value for {setting_name}",
-                        updated_by="system"
+                        updated_by="system",
                     )
                     db.add(config)
             db.commit()
@@ -53,11 +54,11 @@ def initialize_default_config():
 def get_config_value(setting_name, default=None):
     """
     Get a single configuration value from database with caching
-    
+
     Args:
         setting_name: Name of the setting
         default: Default value if not found
-        
+
     Returns:
         str: Configuration value
     """
@@ -75,7 +76,7 @@ def get_config_value(setting_name, default=None):
 def get_all_config():
     """
     Get all configuration values from database as dictionary
-    
+
     Returns:
         dict: All configuration key-value pairs
     """
@@ -112,12 +113,10 @@ def get_config():
 
     log_successful_request()
 
-    return jsonify({
-        "status": "success", 
-        "config": config_dict, 
-        "accessed_by": user.username,
-        "source": "database"
-    }), 200
+    return (
+        jsonify({"status": "success", "config": config_dict, "accessed_by": user.username, "source": "database"}),
+        200,
+    )
 
 
 @bp.route("/update", methods=["POST"])
@@ -170,12 +169,10 @@ def update_config():
 
         with get_db() as db:
             # Find existing config
-            config = db.query(SystemConfig).filter(
-                SystemConfig.setting_name == config_request.setting_name
-            ).first()
+            config = db.query(SystemConfig).filter(SystemConfig.setting_name == config_request.setting_name).first()
 
             old_value = None
-            
+
             if config:
                 # Update existing
                 old_value = config.setting_value
@@ -187,14 +184,16 @@ def update_config():
                     setting_name=config_request.setting_name,
                     setting_value=config_request.setting_value,
                     updated_by=user.username,
-                    description=f"Custom setting for {config_request.setting_name}"
+                    description=f"Custom setting for {config_request.setting_name}",
                 )
                 db.add(config)
 
             db.commit()
 
             # Log audit
-            log_audit(user=user, action="UPDATE_CONFIG", resource="/api/v1/config/update", method="POST", status_code=200)
+            log_audit(
+                user=user, action="UPDATE_CONFIG", resource="/api/v1/config/update", method="POST", status_code=200
+            )
 
             logger.info(
                 f"Config updated by {user.username}: "
@@ -215,7 +214,11 @@ def update_config():
                             "old_value": old_value,
                             "new_value": config_request.setting_value,
                             "updated_by": user.username,
-                            "updated_at": config.updated_at.isoformat() if hasattr(config.updated_at, 'isoformat') else str(config.updated_at),
+                            "updated_at": (
+                                config.updated_at.isoformat()
+                                if hasattr(config.updated_at, "isoformat")
+                                else str(config.updated_at)
+                            ),
                         },
                     }
                 ),
@@ -249,17 +252,17 @@ def reset_config():
         with get_db() as db:
             # Delete all existing config
             db.query(SystemConfig).delete()
-            
+
             # Re-initialize with defaults
             for setting_name, setting_value in DEFAULT_CONFIG.items():
                 config = SystemConfig(
                     setting_name=setting_name,
                     setting_value=setting_value,
                     description=f"Default value for {setting_name}",
-                    updated_by=user.username
+                    updated_by=user.username,
                 )
                 db.add(config)
-            
+
             db.commit()
 
         log_audit(user=user, action="RESET_CONFIG", resource="/api/v1/config/reset", method="POST", status_code=200)
@@ -269,12 +272,11 @@ def reset_config():
         # Invalidate cache
         invalidate_cache("cache:config:*")
 
-        return jsonify({
-            "status": "success", 
-            "message": "Configuration reset to defaults", 
-            "config": DEFAULT_CONFIG
-        }), 200
-        
+        return (
+            jsonify({"status": "success", "message": "Configuration reset to defaults", "config": DEFAULT_CONFIG}),
+            200,
+        )
+
     except Exception as e:
         logger.error(f"Config reset error: {str(e)}")
         return jsonify({"status": "error", "message": "Internal server error"}), 500

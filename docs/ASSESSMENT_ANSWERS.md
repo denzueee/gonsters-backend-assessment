@@ -1,8 +1,8 @@
 # GONSTERS Technical Skill Assessment
 
-**Position**: Back End Developer  
-**Candidate**: Yoga Putra Pratama  
-**Date**: December 13, 2025  
+**Position**: Back End Developer
+**Candidate**: Yoga Putra Pratama
+**Date**: December 13, 2025
 **Repository**: https://github.com/denzueee/gonsters-backend-assessment
 
 ---
@@ -12,6 +12,7 @@
 ### Question 1.1: Database Design
 
 > **References:**
+>
 > - [PostgreSQL Partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html)
 > - [InfluxDB Data Design](https://docs.influxdata.com/influxdb/v1.8/concepts/schema_and_data_layout/)
 
@@ -28,25 +29,25 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS machine_metadata (
     -- Primary Key: UUID for unique machine identification
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    
+
     -- Machine name (e.g., "CNC-Machine-01", "Compressor-A1")
     name VARCHAR(255) NOT NULL,
-    
+
     -- Physical location (e.g., "Factory Floor 1", "Building A - Zone 3")
     location VARCHAR(500) NOT NULL,
 
     -- Installed sensor type (e.g., "Temperature", "Pressure", "Vibration")
     sensor_type VARCHAR(100) NOT NULL,
-    
+
     -- Current operational status
     -- Values: 'active', 'inactive', 'maintenance', 'error'
     status VARCHAR(50) NOT NULL DEFAULT 'active',
-    
+
     -- Timestamp for audit trail
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
+
     -- Constraints
     CONSTRAINT chk_status CHECK (status IN ('active', 'inactive', 'maintenance', 'error'))
 
@@ -126,16 +127,16 @@ INSERT INTO machine_metadata (name, location, sensor_type, status) VALUES
     ('Cooling-Unit-01', 'Factory Floor 3 - Zone D', 'Temperature', 'inactive');
 
 -- Verify table creation
-SELECT table_name, column_name, data_type 
- 
-FROM information_schema.columns 
+SELECT table_name, column_name, data_type
+
+FROM information_schema.columns
 WHERE table_name = 'machine_metadata'
 ORDER BY ordinal_position;
 
 -- Verify indexes
-SELECT indexname, indexdef 
- 
-FROM pg_indexes 
+SELECT indexname, indexdef
+
+FROM pg_indexes
 WHERE tablename = 'machine_metadata';
 
 -- Count total records
@@ -151,12 +152,12 @@ ORDER BY active_machines DESC;
 ```
 
 **Essential Columns:**
+
 - **ID**: UUID primary key for global uniqueness.
 - **Name**: Machine identifier (VARCHAR 255).
 - **Location**: Physical location (VARCHAR 500).
 - **Sensor Type**: Installed sensor type (VARCHAR 100).
 - **Status**: Operational status with CHECK constraint.
-
 
 ---
 
@@ -169,17 +170,18 @@ InfluxDB uses a different data model compared to relational databases. Basic str
 **Measurement**: `sensor_readings`
 
 **Tags** (Indexed, for filtering):
+
 - `machine_id`: UUID from PostgreSQL (link to `machine_metadata`)
 - `sensor_type`: "Temperature", "Pressure", "Speed"
 - `location`: Physical location for spatial queries
 
 **Fields** (Actual measurements, unindexed):
+
 - `temperature`: float (Celsius)
 - `pressure`: float (kPa)
 - `speed`: float (RPM)
 
 **Timestamp**: Nanosecond precision
-
 
 ### Contoh Data Point
 
@@ -200,19 +202,19 @@ point = Point("sensor_readings") \
 
 ### Design Rationale
 
-| Component | Purpose | Benefit |
-|-----------|---------|---------|
-| **Tags** | Indexed metadata for filtering | Fast queries (WHERE clauses) |
-| **Fields** | Actual sensor measurements | Efficient storage |
-| **Timestamp** | Nanosecond precision | High-resolution time-series data |
+| Component     | Purpose                        | Benefit                          |
+| ------------- | ------------------------------ | -------------------------------- |
+| **Tags**      | Indexed metadata for filtering | Fast queries (WHERE clauses)     |
+| **Fields**    | Actual sensor measurements     | Efficient storage                |
+| **Timestamp** | Nanosecond precision           | High-resolution time-series data |
 
 **Why this schema?**
+
 1.  `machine_id` as a tag ensures fast filtering by specific machines.
 2.  `sensor_type` as a tag allows grouping by sensor categories.
 3.  `location` tagging enables spatial analytics.
 4.  Multiple fields in a single point reduce storage overhead.
 5.  Indexing tags (but not fields) optimizes query performance.
-
 
 ---
 
@@ -243,6 +245,7 @@ CREATE TABLE machine_metadata_2025 PARTITION OF machine_metadata
 ```
 
 **Benefits for Weekly/Monthly Analytics:**
+
 - **Partition pruning**: Queries with time filters only scan relevant partitions
 - **10-50x faster** for historical queries with date ranges
 - **Easier maintenance**: VACUUM and ANALYZE operate on smaller tables
@@ -269,16 +272,18 @@ CREATE INDEX idx_machine_created_at ON machine_metadata(created_at);
 ```
 
 **Benefits for Weekly/Monthly Analytics:**
+
 - **100-1000x faster** lookups compared to full table scans
 - **Composite index** optimizes queries like: `WHERE location = 'Floor 1' AND status = 'active'`
 - **B-tree indexes** provide O(log n) lookup time
 - **Covering indexes** reduce disk I/O
 
 **Query Performance Example:**
+
 ```sql
 -- Without index: 500ms (full table scan)
 -- With index: 5ms (index scan)
-SELECT * FROM machine_metadata 
+SELECT * FROM machine_metadata
 WHERE location = 'Factory Floor 1' AND status = 'active';
 ```
 
@@ -291,26 +296,29 @@ WHERE location = 'Factory Floor 1' AND status = 'active';
 **3-Tier Architecture Implementation:**
 
 **Tier 1: Raw Data**
--   Bucket: `sensor_data_raw`
--   Retention: 52 weeks (1 year)
--   Resolution: 1-second intervals
--   **Use case**: Detailed analysis for recent data.
 
-*Automatic downsampling via Continuous Query.*
+- Bucket: `sensor_data_raw`
+- Retention: 52 weeks (1 year)
+- Resolution: 1-second intervals
+- **Use case**: Detailed analysis for recent data.
+
+_Automatic downsampling via Continuous Query._
 
 **Tier 2: Hourly Aggregates**
--   Bucket: `sensor_data_hourly`
--   Retention: 104 weeks (2 years)
--   Resolution: 1-hour averages
--   **Use case**: Weekly and monthly analytics.
 
-*Automatic downsampling via Continuous Query.*
+- Bucket: `sensor_data_hourly`
+- Retention: 104 weeks (2 years)
+- Resolution: 1-hour averages
+- **Use case**: Weekly and monthly analytics.
+
+_Automatic downsampling via Continuous Query._
 
 **Tier 3: Daily Aggregates**
--   Bucket: `sensor_data_daily`
--   Retention: 260 weeks (5 years)
--   Resolution: 1-day averages
--   **Use case**: Long-term trends and compliance.
+
+- Bucket: `sensor_data_daily`
+- Retention: 260 weeks (5 years)
+- Resolution: 1-day averages
+- **Use case**: Long-term trends and compliance.
 
 **Example Continuous Query with Flux:**
 
@@ -324,11 +332,11 @@ from(bucket: "sensor_data_raw")
 ```
 
 **Benefits for Weekly/Monthly Analytics:**
--   **90% storage reduction** through downsampling.
--   **60-100x faster queries** on aggregated data.
--   Automatic data lifecycle management.
--   Cost efficiency while maintaining queryability.
 
+- **90% storage reduction** through downsampling.
+- **60-100x faster queries** on aggregated data.
+- Automatic data lifecycle management.
+- Cost efficiency while maintaining queryability.
 
 ---
 
@@ -349,6 +357,7 @@ from(bucket: "sensor_data_hourly")
 ```
 
 **Performance:**
+
 - **Data points**: 168 hourly readings per machine (7 days × 24 hours)
 - **Tag filtering** (location): ~10ms (indexed)
 - **Aggregation**: Reduces to 7 daily averages
@@ -370,6 +379,7 @@ from(bucket: "sensor_data_hourly")
 ```
 
 **Performance:**
+
 - **Data points**: 720 hourly readings per machine (30 days × 24 hours)
 - **Downsampled bucket**: 60x less data than raw
 - **Aggregation**: Reduces to 30 daily averages
@@ -379,13 +389,13 @@ from(bucket: "sensor_data_hourly")
 
 ### Performance Summary
 
-| Optimization | Impact on Weekly Analytics | Impact on Monthly Analytics |
-|--------------|---------------------------|----------------------------|
-| **Partitioning** (PostgreSQL) | 10-50x faster metadata queries | 10-50x faster metadata queries |
-| **Indexing** (PostgreSQL) | 100-1000x faster lookups | 100-1000x faster lookups |
+| Optimization                       | Impact on Weekly Analytics     | Impact on Monthly Analytics    |
+| ---------------------------------- | ------------------------------ | ------------------------------ |
+| **Partitioning** (PostgreSQL)      | 10-50x faster metadata queries | 10-50x faster metadata queries |
+| **Indexing** (PostgreSQL)          | 100-1000x faster lookups       | 100-1000x faster lookups       |
 | **Tag-based Filtering** (InfluxDB) | 100x faster than field filters | 100x faster than field filters |
-| **Downsampling** (InfluxDB) | 60x faster (hourly vs. raw) | 100x faster (daily vs. raw) |
-| **Retention Policies** (InfluxDB) | 90% storage reduction | 90% storage reduction |
+| **Downsampling** (InfluxDB)        | 60x faster (hourly vs. raw)    | 100x faster (daily vs. raw)    |
+| **Retention Policies** (InfluxDB)  | 90% storage reduction          | 90% storage reduction          |
 
 **Combined Result**: Sub-second query execution for weekly/monthly analytics on hundreds of machines.
 
@@ -408,26 +418,24 @@ Complete implementation available at:
 
 This database design provides:
 
--   **Scalability**: Handles hundreds of machines via partitioning and indexing.
--   **Performance**: Sub-second queries for weekly/monthly analytics.
--   **Data Integrity**: Proper CHECK constraints and specialized data types.
--   **Cost Efficiency**: 90% storage reduction via retention policies.
--   **Maintainability**: Clear separation between metadata and time-series data.
+- **Scalability**: Handles hundreds of machines via partitioning and indexing.
+- **Performance**: Sub-second queries for weekly/monthly analytics.
+- **Data Integrity**: Proper CHECK constraints and specialized data types.
+- **Cost Efficiency**: 90% storage reduction via retention policies.
+- **Maintainability**: Clear separation between metadata and time-series data.
 
 This architecture follows industry best practices for IoT/Industrial data platforms and is production-ready.
-
 
 ---
 
 **End of Question 1.1**
 
-
 ---
-
 
 ### Question 1.2: RESTful API Design
 
 > **References:**
+>
 > - [REST API Best Practices](https://microsoft.github.io/code-with-engineering-playbook/design/design-patterns/rest-api-design-guidance/)
 > - [HTTP Status Codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status)
 
@@ -449,41 +457,41 @@ The endpoint receives **batch sensor data** from industrial gateways, supporting
 
 ```json
 {
-  "gateway_id": "GW-TEST-01",
-  "timestamp": "2025-12-13T10:00:00Z",
-  "batch": [
-    {
-      "machine_id": "e21c1cfa-4af9-4ccc-a53c-78a967195439",
-      "sensor_type": "Vibration",
-      "location": "Test Floor",
-      "readings": [
+    "gateway_id": "GW-TEST-01",
+    "timestamp": "2025-12-13T10:00:00Z",
+    "batch": [
         {
-          "timestamp": "2025-12-13T10:00:00Z",
-          "temperature": 60.5,
-          "pressure": 102.0,
-          "speed": 1400
+            "machine_id": "e21c1cfa-4af9-4ccc-a53c-78a967195439",
+            "sensor_type": "Vibration",
+            "location": "Test Floor",
+            "readings": [
+                {
+                    "timestamp": "2025-12-13T10:00:00Z",
+                    "temperature": 60.5,
+                    "pressure": 102.0,
+                    "speed": 1400
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }
 ```
 
 ### Schema Definition
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `gateway_id` | string | Yes | Unique identifier of the industrial gateway |
-| `timestamp` | ISO 8601 | Yes | Gateway transmission timestamp |
-| `batch` | array | Yes | Array of machine data objects |
-| `batch[].machine_id` | UUID | Yes | Machine identifier (from PostgreSQL) |
-| `batch[].sensor_type` | string | Yes | Sensor type (Temperature/Pressure/Speed) |
-| `batch[].location` | string | Yes | Physical location of machine |
-| `batch[].readings` | array | Yes | Array of sensor readings |
-| `batch[].readings[].timestamp` | ISO 8601 | Yes | Measurement timestamp |
-| `batch[].readings[].temperature` | float | No | Temperature in Celsius |
-| `batch[].readings[].pressure` | float | No | Pressure in kPa |
-| `batch[].readings[].speed` | float | No | Speed in RPM |
+| Field                            | Type     | Required | Description                                 |
+| -------------------------------- | -------- | -------- | ------------------------------------------- |
+| `gateway_id`                     | string   | Yes      | Unique identifier of the industrial gateway |
+| `timestamp`                      | ISO 8601 | Yes      | Gateway transmission timestamp              |
+| `batch`                          | array    | Yes      | Array of machine data objects               |
+| `batch[].machine_id`             | UUID     | Yes      | Machine identifier (from PostgreSQL)        |
+| `batch[].sensor_type`            | string   | Yes      | Sensor type (Temperature/Pressure/Speed)    |
+| `batch[].location`               | string   | Yes      | Physical location of machine                |
+| `batch[].readings`               | array    | Yes      | Array of sensor readings                    |
+| `batch[].readings[].timestamp`   | ISO 8601 | Yes      | Measurement timestamp                       |
+| `batch[].readings[].temperature` | float    | No       | Temperature in Celsius                      |
+| `batch[].readings[].pressure`    | float    | No       | Pressure in kPa                             |
+| `batch[].readings[].speed`       | float    | No       | Speed in RPM                                |
 
 #### Design Rationale
 
@@ -499,21 +507,21 @@ The endpoint receives **batch sensor data** from industrial gateways, supporting
 
 ```json
 {
-  "details": [
-    {
-      "machine_id": "e21c1cfa-4af9-4ccc-a53c-78a967195439",
-      "readings_count": 1,
-      "status": "success"
+    "details": [
+        {
+            "machine_id": "e21c1cfa-4af9-4ccc-a53c-78a967195439",
+            "readings_count": 1,
+            "status": "success"
+        }
+    ],
+    "message": "Batch ingestion completed",
+    "status": "success",
+    "summary": {
+        "gateway_id": "GW-TEST-01",
+        "processed_at": "2025-12-13T03:49:51.493494Z",
+        "total_machines": 1,
+        "total_readings": 1
     }
-  ],
-  "message": "Batch ingestion completed",
-  "status": "success",
-  "summary": {
-    "gateway_id": "GW-TEST-01",
-    "processed_at": "2025-12-13T03:49:51.493494Z",
-    "total_machines": 1,
-    "total_readings": 1
-  }
 }
 ```
 
@@ -521,20 +529,20 @@ The endpoint receives **batch sensor data** from industrial gateways, supporting
 
 ```json
 {
-  "status": "error",
-  "message": "Validation failed",
-  "errors": [
-    {
-      "field": "batch[0].machine_id",
-      "error": "Machine ID not found in database",
-      "value": "invalid-uuid"
-    },
-    {
-      "field": "batch[1].readings[0].timestamp",
-      "error": "Invalid ISO 8601 format",
-      "value": "2025-13-45"
-    }
-  ]
+    "status": "error",
+    "message": "Validation failed",
+    "errors": [
+        {
+            "field": "batch[0].machine_id",
+            "error": "Machine ID not found in database",
+            "value": "invalid-uuid"
+        },
+        {
+            "field": "batch[1].readings[0].timestamp",
+            "error": "Invalid ISO 8601 format",
+            "value": "2025-13-45"
+        }
+    ]
 }
 ```
 
@@ -551,14 +559,14 @@ Authorization: Bearer {token}
 
 #### Query Parameters
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `start_time` | ISO 8601 | Yes | - | Start of time range |
-| `end_time` | ISO 8601 | No | Now | End of time range |
-| `interval` | string | No | `raw` | Aggregation interval (`raw`, `1m`, `5m`, `1h`, `1d`) |
-| `fields` | string | No | `all` | Comma-separated fields (`temperature`, `pressure`, `speed`, `all`) |
-| `limit` | integer | No | 1000 | Max records to return (1-10000) |
-| `offset` | integer | No | 0 | Pagination offset |
+| Parameter    | Type     | Required | Default | Description                                                        |
+| ------------ | -------- | -------- | ------- | ------------------------------------------------------------------ |
+| `start_time` | ISO 8601 | Yes      | -       | Start of time range                                                |
+| `end_time`   | ISO 8601 | No       | Now     | End of time range                                                  |
+| `interval`   | string   | No       | `raw`   | Aggregation interval (`raw`, `1m`, `5m`, `1h`, `1d`)               |
+| `fields`     | string   | No       | `all`   | Comma-separated fields (`temperature`, `pressure`, `speed`, `all`) |
+| `limit`      | integer  | No       | 1000    | Max records to return (1-10000)                                    |
+| `offset`     | integer  | No       | 0       | Pagination offset                                                  |
 
 ### Example Requests
 
@@ -586,38 +594,34 @@ GET /api/v1/data/machine/d1c2084b-f16a-4eea-89d9-4402095d3af5?start_time=2025-11
 
 ```json
 {
-  "data": [
-    {
-      "timestamp": "2025-12-13T10:00:00Z",
-      "temperature": 60.5,
-      "pressure": 102.0,
-      "speed": 1400.0
-    }
-  ],
-  "machine": {
-    "location": "Test Floor",
-    "machine_id": "b450e37f-b85f-423c-97e9-247f5cf03063",
-    "name": "Test-Machine-1765597890",
-    "sensor_type": "Vibration"
-  },
-  "pagination": {
-    "has_more": false,
-    "limit": 1000,
-    "offset": 0,
-    "returned_records": 1,
-    "total_records": 1
-  },
-  "query": {
-    "end_time": "2025-12-13T03:51:31.002155Z",
-    "fields": [
-      "temperature",
-      "pressure",
-      "speed"
+    "data": [
+        {
+            "timestamp": "2025-12-13T10:00:00Z",
+            "temperature": 60.5,
+            "pressure": 102.0,
+            "speed": 1400.0
+        }
     ],
-    "interval": "raw",
-    "start_time": "2024-01-01T00:00:00+00:00Z"
-  },
-  "status": "success"
+    "machine": {
+        "location": "Test Floor",
+        "machine_id": "b450e37f-b85f-423c-97e9-247f5cf03063",
+        "name": "Test-Machine-1765597890",
+        "sensor_type": "Vibration"
+    },
+    "pagination": {
+        "has_more": false,
+        "limit": 1000,
+        "offset": 0,
+        "returned_records": 1,
+        "total_records": 1
+    },
+    "query": {
+        "end_time": "2025-12-13T03:51:31.002155Z",
+        "fields": ["temperature", "pressure", "speed"],
+        "interval": "raw",
+        "start_time": "2024-01-01T00:00:00+00:00Z"
+    },
+    "status": "success"
 }
 ```
 
@@ -625,9 +629,9 @@ GET /api/v1/data/machine/d1c2084b-f16a-4eea-89d9-4402095d3af5?start_time=2025-11
 
 ```json
 {
-  "status": "error",
-  "message": "Machine not found",
-  "machine_id": "invalid-uuid"
+    "status": "error",
+    "message": "Machine not found",
+    "machine_id": "invalid-uuid"
 }
 ```
 
@@ -635,15 +639,15 @@ GET /api/v1/data/machine/d1c2084b-f16a-4eea-89d9-4402095d3af5?start_time=2025-11
 
 ```json
 {
-  "status": "error",
-  "message": "Invalid query parameters",
-  "errors": [
-    {
-      "parameter": "interval",
-      "error": "Invalid interval value. Must be one of: raw, 1m, 5m, 1h, 1d",
-      "value": "2h"
-    }
-  ]
+    "status": "error",
+    "message": "Invalid query parameters",
+    "errors": [
+        {
+            "parameter": "interval",
+            "error": "Invalid interval value. Must be one of: raw, 1m, 5m, 1h, 1d",
+            "value": "2h"
+        }
+    ]
 }
 ```
 
@@ -662,10 +666,10 @@ Authorization: Bearer {token} (Supervisor/Management)
 
 ```json
 {
-  "name": "Machine-01",
-  "location": "Factory Floor 1",
-  "sensor_type": "Temperature",
-  "status": "active"
+    "name": "Machine-01",
+    "location": "Factory Floor 1",
+    "sensor_type": "Temperature",
+    "status": "active"
 }
 ```
 
@@ -673,9 +677,9 @@ Authorization: Bearer {token} (Supervisor/Management)
 
 ```json
 {
-  "status": "success",
-  "message": "Machine created successfully",
-  "machine_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5"
+    "status": "success",
+    "message": "Machine created successfully",
+    "machine_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5"
 }
 ```
 
@@ -687,25 +691,25 @@ Authorization: Bearer {token}
 ```
 
 **Query Parameters:**
+
 - `location`: Filter by location
 - `status`: Filter by status
 - `sensor_type`: Filter by sensor type
 
 **Response (200 OK):**
 
-
 ```json
 {
-  "status": "success",
-  "count": 5,
-  "machines": [
-    {
-      "machine_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
-      "name": "Machine-01",
-      "location": "Factory Floor 1",
-      "sensor_type": "Temperature"
-    }
-  ]
+    "status": "success",
+    "count": 5,
+    "machines": [
+        {
+            "machine_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
+            "name": "Machine-01",
+            "location": "Factory Floor 1",
+            "sensor_type": "Temperature"
+        }
+    ]
 }
 ```
 
@@ -967,15 +971,15 @@ def ingest_data():  # noqa: C901
 1. **Validation**: Multi-level validation (request body, batch structure, machine existence)
 2. **Error Handling**: Graceful error handling with detailed error messages
 3. **Batch Processing**: Processes multiple machines and readings efficiently
-4. **Database Integration**: 
-   - PostgreSQL for machine validation
-   - InfluxDB for sensor data storage
+4. **Database Integration**:
+    - PostgreSQL for machine validation
+    - InfluxDB for sensor data storage
 5. **Logging**: Comprehensive logging for debugging and monitoring
 6. **Response Codes**:
-   - 201: Full success
-   - 207: Partial success (some readings failed)
-   - 400: Validation error
-   - 500: Server error
+    - 201: Full success
+    - 207: Partial success (some readings failed)
+    - 400: Validation error
+    - 500: Server error
 
 ---
 
@@ -987,35 +991,35 @@ def ingest_data():  # noqa: C901
 def require_auth(f):
     """
     Decorator untuk memvalidasi JWT token dan autentikasi user
-    
+
     Returns:
         function: Decorated function yang memerlukan autentikasi
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
-        
+
         if not auth_header:
             return jsonify({
                 'status': 'error',
                 'message': 'Missing authorization header'
             }), 401
-        
+
         if not auth_header.startswith('Bearer '):
             return jsonify({
                 'status': 'error',
                 'message': 'Invalid authorization header format. Expected: Bearer <token>'
             }), 401
-        
+
         token = auth_header.split(' ')[1]
         payload = verify_token(token, token_type='access')
-        
+
         if not payload:
             return jsonify({
                 'status': 'error',
                 'message': 'Invalid or expired token'
             }), 401
-            
+
         # Check blacklist
         if is_token_blacklisted(token):
             return jsonify({
@@ -1023,32 +1027,32 @@ def require_auth(f):
                 'message': 'Token has been revoked'
             }), 401
 
-        
+
         user_id = payload.get('sub')
-        
+
         with get_db() as db:
             user = db.query(User).filter(User.id == user_id).first()
-            
+
             if not user:
                 return jsonify({
                     'status': 'error',
                     'message': 'User not found'
                 }), 401
-            
+
             if not user.is_active:
                 return jsonify({
                     'status': 'error',
                     'message': 'User account is inactive'
                 }), 401
-            
+
             # Expunge the user from the session to make it detached but accessible
             # This ensures the user object remains usable after the session closes
             db.expunge(user)
             g.current_user = user
             g.token_payload = payload
-        
+
         return f(*args, **kwargs)
-    
+
     return decorated_function
 
 # Usage:
@@ -1091,7 +1095,7 @@ def process_batch_async(batch_data):
 @bp.route('/ingest', methods=['POST'])
 def ingest_data():
     data = request.get_json()
-    
+
     # For large batches, process asynchronously
     if len(data['batch']) > 100:
         task = process_batch_async.delay(data)
@@ -1100,7 +1104,7 @@ def ingest_data():
             'message': 'Batch queued for processing',
             'task_id': task.id
         }), 202
-    
+
     # Process small batches synchronously
     # ... implementation
 ```
@@ -1111,12 +1115,12 @@ def ingest_data():
 
 This RESTful API design provides:
 
- **Efficient Batch Ingestion**: Reduces HTTP overhead with batch processing  
- **Flexible Retrieval**: Supports raw data and multiple aggregation intervals  
- **Robust Validation**: Multi-level validation with detailed error messages  
- **Scalability**: Supports async processing for large batches  
- **Monitoring**: Comprehensive logging and error tracking  
- **Industry Standards**: ISO 8601 timestamps, RESTful conventions, proper HTTP status codes  
+**Efficient Batch Ingestion**: Reduces HTTP overhead with batch processing
+ **Flexible Retrieval**: Supports raw data and multiple aggregation intervals
+ **Robust Validation**: Multi-level validation with detailed error messages
+ **Scalability**: Supports async processing for large batches
+ **Monitoring**: Comprehensive logging and error tracking
+ **Industry Standards**: ISO 8601 timestamps, RESTful conventions, proper HTTP status codes
 
 The implementation is production-ready and follows best practices for industrial IoT data platforms.
 
@@ -1124,15 +1128,14 @@ The implementation is production-ready and follows best practices for industrial
 
 **End of Question 1.2**
 
-
 ---
-
 
 ## Part 2: MQTT Protocol & Security Implementation
 
 ### Question 2.1: MQTT Implementation
 
 > **References:**
+>
 > - [MQTT Essentials - Packet Structure](https://www.hivemq.com/blog/mqtt-essentials-part2-publish-subscribe/)
 > - [Paho MQTT Python Client](https://eclipse.dev/paho/files/paho.mqtt.python/html/index.html)
 
@@ -1365,21 +1368,22 @@ def stop_mqtt_subscriber():
 
 ##### Fundamental Differences in Connection Handling
 
-| Aspect | MQTT | WebSocket |
-|--------|------|-----------|
-| **Protocol Type** | Publish/Subscribe messaging protocol | Full-duplex communication protocol |
-| **Connection Model** | Broker-based (clients connect to broker) | Peer-to-peer (direct client-server connection) |
-| **Message Pattern** | Asynchronous, topic-based routing | Synchronous, bidirectional streaming |
-| **QoS Levels** | 3 levels (0: At most once, 1: At least once, 2: Exactly once) | No built-in QoS (application-level) |
-| **Persistence** | Messages can be retained by broker | No message persistence |
-| **Bandwidth** | Lightweight, minimal overhead (~2 bytes header) | Higher overhead (~6-14 bytes header) |
-| **Reconnection** | Automatic reconnection with session resumption | Manual reconnection handling required |
-| **Scalability** | highly scalable (broker handles routing) | Limited by server connections |
-| **Use Case** | IoT, sensor networks, unreliable networks | Real-time web apps, chat, gaming |
+| Aspect               | MQTT                                                          | WebSocket                                      |
+| -------------------- | ------------------------------------------------------------- | ---------------------------------------------- |
+| **Protocol Type**    | Publish/Subscribe messaging protocol                          | Full-duplex communication protocol             |
+| **Connection Model** | Broker-based (clients connect to broker)                      | Peer-to-peer (direct client-server connection) |
+| **Message Pattern**  | Asynchronous, topic-based routing                             | Synchronous, bidirectional streaming           |
+| **QoS Levels**       | 3 levels (0: At most once, 1: At least once, 2: Exactly once) | No built-in QoS (application-level)            |
+| **Persistence**      | Messages can be retained by broker                            | No message persistence                         |
+| **Bandwidth**        | Lightweight, minimal overhead (~2 bytes header)               | Higher overhead (~6-14 bytes header)           |
+| **Reconnection**     | Automatic reconnection with session resumption                | Manual reconnection handling required          |
+| **Scalability**      | highly scalable (broker handles routing)                      | Limited by server connections                  |
+| **Use Case**         | IoT, sensor networks, unreliable networks                     | Real-time web apps, chat, gaming               |
 
 #### Detailed Connection Handling
 
 **MQTT:**
+
 ```
 1. Client connects to broker with CONNECT packet
 2. Broker responds with CONNACK (connection acknowledgment)
@@ -1392,6 +1396,7 @@ def stop_mqtt_subscriber():
 ```
 
 **WebSocket:**
+
 ```
 1. Client initiates HTTP upgrade request
 2. Server responds with 101 Switching Protocols
@@ -1409,37 +1414,37 @@ def stop_mqtt_subscriber():
 #### Choose MQTT When:
 
 1.  **Unreliable Network Conditions**
-    -   Factory environments often have intermittent connectivity.
-    -   MQTT's QoS ensures message delivery upon reconnection.
-    -   Persistent sessions maintain subscriptions across disconnects.
+    - Factory environments often have intermittent connectivity.
+    - MQTT's QoS ensures message delivery upon reconnection.
+    - Persistent sessions maintain subscriptions across disconnects.
 
 2.  **Large Scale (100+ machines)**
-    -   Broker handles message routing efficiently.
-    -   Decoupled architecture allows adding consumers without affecting producers.
+    - Broker handles message routing efficiently.
+    - Decoupled architecture allows adding consumers without affecting producers.
 
 3.  **Bandwidth Constraints**
-    -   Minimal header overhead reduces data usage (critical for cellular/satellite).
+    - Minimal header overhead reduces data usage (critical for cellular/satellite).
 
 4.  **Decoupled Architecture**
-    -   Publishers (machines) don't need to know about Subscribers (Dashboards).
+    - Publishers (machines) don't need to know about Subscribers (Dashboards).
 
 5.  **Message Persistence**
-    -   Retained messages ensure new dashboards get the latest state immediately upon connection.
+    - Retained messages ensure new dashboards get the latest state immediately upon connection.
 
 #### Choose WebSocket When:
 
 1.  **Low Latency is Critical**
-    -   Direct point-to-point connection eliminates broker hop latency (~millisecond difference).
-    -   High-frequency gaming or trading platforms.
+    - Direct point-to-point connection eliminates broker hop latency (~millisecond difference).
+    - High-frequency gaming or trading platforms.
 
 2.  **Bidirectional Control**
-    -   Dashboard needs to send complex commands back to the server frequently.
+    - Dashboard needs to send complex commands back to the server frequently.
 
 3.  **Simple Architecture**
-    -   Small scale (<50 clients), no need for a separate broker component.
+    - Small scale (<50 clients), no need for a separate broker component.
 
 4.  **Web-Native Integration**
-    -   Running directly in browser without additional libraries (native support).
+    - Running directly in browser without additional libraries (native support).
 
 ---
 
@@ -1456,74 +1461,68 @@ def stop_mqtt_subscriber():
 7. **Dashboard (WebSocket Client)**: Displays live data
 
 **Flow:**
+
 1.  Machines publish sensor data via MQTT (Reliable, Low Bandwidth).
 2.  Backend subscribes to MQTT and persists data to InfluxDB.
 3.  Backend broadcasts updates via WebSocket to Dashboards (Low Latency).
 4.  Dashboards display real-time data connected via WebSocket.
 
 **Benefits:**
--   **MQTT** handles the "Machine-to-Server" leg (unreliable networks, lightweight).
--   **WebSocket** handles the "Server-to-Client" leg (web-native, real-time UI).
 
+- **MQTT** handles the "Machine-to-Server" leg (unreliable networks, lightweight).
+- **WebSocket** handles the "Server-to-Client" leg (web-native, real-time UI).
 
 ---
 
 ### Question 2.2: Security and Authentication (RBAC)
 
 > **References:**
+>
 > - [JWT Logic](https://jwt.io/introduction/)
 > - [OWASP RBAC Cheatsheet](https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html)
 
 #### A. JWT Design
 
-
 #### JWT Payload Structure
 
 ```json
 {
-  "header": {
-    "alg": "HS256",
-    "typ": "JWT"
-  },
-  "payload": {
-    "sub": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
-    "username": "john.doe",
-    "email": "john.doe@factory.com",
-    "role": "Management",
-    "permissions": [
-      "read:machines",
-      "write:machines",
-      "read:config",
-      "write:config",
-      "read:users",
-      "write:users"
-    ],
-    "factory_id": "factory-A",
-    "department": "Operations",
-    "iat": 1702435200,
-    "exp": 1702438800,
-    "iss": "gonsters-backend-api",
-    "aud": "gonsters-dashboard"
-  },
-  "signature": "HMACSHA256(base64UrlEncode(header) + '.' + base64UrlEncode(payload), secret)"
+    "header": {
+        "alg": "HS256",
+        "typ": "JWT"
+    },
+    "payload": {
+        "sub": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
+        "username": "john.doe",
+        "email": "john.doe@factory.com",
+        "role": "Management",
+        "permissions": ["read:machines", "write:machines", "read:config", "write:config", "read:users", "write:users"],
+        "factory_id": "factory-A",
+        "department": "Operations",
+        "iat": 1702435200,
+        "exp": 1702438800,
+        "iss": "gonsters-backend-api",
+        "aud": "gonsters-dashboard"
+    },
+    "signature": "HMACSHA256(base64UrlEncode(header) + '.' + base64UrlEncode(payload), secret)"
 }
 ```
 
 #### Essential Fields for RBAC
 
-| Field | Type | Required | Purpose |
-|-------|------|----------|---------|
-| `sub` | UUID |  | Subject (User ID) - unique identifier |
-| `username` | string |  | Human-readable username |
-| `email` | string |  | User email for audit logs |
-| `role` | string |  | Primary role (Operator/Supervisor/Management) |
-| `permissions` | array |  | Granular permissions for fine-grained access |
-| `factory_id` | string | ○ | Multi-tenancy support |
-| `department` | string | ○ | Additional context for authorization |
-| `iat` | timestamp |  | Issued at (token creation time) |
-| `exp` | timestamp |  | Expiration time (security) |
-| `iss` | string |  | Issuer (token origin validation) |
-| `aud` | string |  | Audience (intended recipient) |
+| Field         | Type      | Required | Purpose                                       |
+| ------------- | --------- | -------- | --------------------------------------------- |
+| `sub`         | UUID      |          | Subject (User ID) - unique identifier         |
+| `username`    | string    |          | Human-readable username                       |
+| `email`       | string    |          | User email for audit logs                     |
+| `role`        | string    |          | Primary role (Operator/Supervisor/Management) |
+| `permissions` | array     |          | Granular permissions for fine-grained access  |
+| `factory_id`  | string    | ○        | Multi-tenancy support                         |
+| `department`  | string    | ○        | Additional context for authorization          |
+| `iat`         | timestamp |          | Issued at (token creation time)               |
+| `exp`         | timestamp |          | Expiration time (security)                    |
+| `iss`         | string    |          | Issuer (token origin validation)              |
+| `aud`         | string    |          | Audience (intended recipient)                 |
 
 #### Role-Permission Mapping
 
@@ -1571,14 +1570,16 @@ ROLE_PERMISSIONS = {
 **User (Management) - POST /api/v1/auth/login**
 
 **Request Body:**
+
 ```json
 {
-  "username": "john.doe",
-  "password": "SecurePassword123!"
+    "username": "john.doe",
+    "password": "SecurePassword123!"
 }
 ```
 
 **Backend:**
+
 1. Validate username/password against database
 2. Hash password and compare with stored hash
 3. If valid, retrieve user details and role
@@ -1586,40 +1587,42 @@ ROLE_PERMISSIONS = {
 5. Return token to user
 
 **Response (200 OK):**
+
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_in": 3600,
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "status": "success",
-  "token_type": "Bearer",
-  "user": {
-    "created_at": "2025-12-13T02:40:48.503889+00:00",
-    "department": "Management",
-    "email": "manager1@factory.com",
-    "factory_id": "factory-A",
-    "id": "c498965a-acc8-4715-9e02-bc7d74beb046",
-    "is_active": true,
-    "last_login": "2025-12-13T03:51:30.965930+00:00",
-    "permissions": [
-      "read:machines",
-      "write:machines",
-      "read:sensor_data",
-      "write:sensor_data",
-      "read:config",
-      "write:config",
-      "read:users",
-      "write:users"
-    ],
-    "role": "Management",
-    "username": "manager1"
-  }
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_in": 3600,
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "status": "success",
+    "token_type": "Bearer",
+    "user": {
+        "created_at": "2025-12-13T02:40:48.503889+00:00",
+        "department": "Management",
+        "email": "manager1@factory.com",
+        "factory_id": "factory-A",
+        "id": "c498965a-acc8-4715-9e02-bc7d74beb046",
+        "is_active": true,
+        "last_login": "2025-12-13T03:51:30.965930+00:00",
+        "permissions": [
+            "read:machines",
+            "write:machines",
+            "read:sensor_data",
+            "write:sensor_data",
+            "read:config",
+            "write:config",
+            "read:users",
+            "write:users"
+        ],
+        "role": "Management",
+        "username": "manager1"
+    }
 }
 ```
 
 **STEP 2: User Stores Token**
 
 **Dashboard/Client:**
+
 1. Store access_token in memory or secure storage
 2. Store refresh_token in httpOnly cookie (more secure)
 3. Set token expiration timer
@@ -1629,24 +1632,27 @@ ROLE_PERMISSIONS = {
 **User - POST /api/v1/config/update**
 
 **Headers:**
+
 ```json
 {
-  "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "Content-Type": "application/json"
+    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "Content-Type": "application/json"
 }
 ```
 
 **Body:**
+
 ```json
 {
-  "setting_name": "max_temperature_threshold",
-  "setting_value": 85.0
+    "setting_name": "max_temperature_threshold",
+    "setting_value": 85.0
 }
 ```
 
 **STEP 4: Authentication Middleware**
 
 **Backend Middleware:**
+
 1. Extract Authorization header
 2. Validate "Bearer" prefix exists
 3. Extract JWT token
@@ -1658,19 +1664,20 @@ ROLE_PERMISSIONS = {
 9. If any check fails - Return 401 Unauthorized
 
 **Pseudocode:**
+
 ```python
 def authenticate_request(request):
     # Extract token
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
         return error(401, "Missing or invalid authorization header")
-    
+
     token = auth_header.split(' ')[1]
-    
+
     # Check blacklist
     if redis.exists(f"bl_{token}"):
         return error(401, "Token has been revoked")
-    
+
     # Verify token
     try:
         payload = jwt.decode(
@@ -1684,7 +1691,7 @@ def authenticate_request(request):
         return error(401, "Token has expired")
     except jwt.InvalidTokenError:
         return error(401, "Invalid token")
-    
+
     # Token is valid - attach user info to request
     request.user = {
         'id': payload['sub'],
@@ -1692,13 +1699,14 @@ def authenticate_request(request):
         'role': payload['role'],
         'permissions': payload['permissions']
     }
-    
+
     return next_middleware()
 ```
 
 **STEP 5: Authorization Middleware (RBAC)**
 
 **Backend Middleware:**
+
 1. Check if user role has required permission
 2. For `POST /api/v1/config/update`, required permission is `write:config`
 3. Check if `write:config` in `user.permissions`
@@ -1706,14 +1714,15 @@ def authenticate_request(request):
 5. If yes - Proceed to endpoint handler
 
 **Pseudocode:**
+
 ```python
 def authorize_request(request, required_permission):
     user = request.user  # Set by authentication middleware
-    
+
     # Check if user has required permission
     if required_permission not in user['permissions']:
         return error(403, f"Insufficient permissions. Required: {required_permission}")
-    
+
     # User is authorized
     return next_middleware()
 
@@ -1726,15 +1735,15 @@ def require_permission(permission):
             auth_result = authenticate_request(request)
             if auth_result.status_code != 200:
                 return auth_result
-            
+
             # Authorize
             authz_result = authorize_request(request, permission)
             if authz_result.status_code != 200:
                 return authz_result
-            
+
             # Execute endpoint
             return func(request, *args, **kwargs)
-        
+
         return wrapper
     return decorator
 
@@ -1752,41 +1761,44 @@ def update_config(request):
 **STEP 6: Endpoint Execution**
 
 **Backend Actions:**
+
 1. Validate request body
 2. Update configuration in storage (Mock Store)
 3. Log action with user ID for audit trail
 4. Return success response
 
 **Audit Log Entry:**
+
 ```json
 {
-  "timestamp": "2025-12-13T03:55:00Z",
-  "user_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
-  "username": "john.doe",
-  "role": "Management",
-  "action": "UPDATE_CONFIG",
-  "resource": "/api/v1/config/update",
-  "changes": {
-    "setting_name": "max_temperature_threshold",
-    "old_value": 80.0,
-    "new_value": 85.0
-  },
-  "ip_address": "192.168.1.100",
-  "user_agent": "Mozilla/5.0..."
+    "timestamp": "2025-12-13T03:55:00Z",
+    "user_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
+    "username": "john.doe",
+    "role": "Management",
+    "action": "UPDATE_CONFIG",
+    "resource": "/api/v1/config/update",
+    "changes": {
+        "setting_name": "max_temperature_threshold",
+        "old_value": 80.0,
+        "new_value": 85.0
+    },
+    "ip_address": "192.168.1.100",
+    "user_agent": "Mozilla/5.0..."
 }
 ```
 
 **Response (200 OK):**
+
 ```json
 {
-  "status": "success",
-  "message": "Configuration updated successfully",
-  "updated_setting": {
-    "name": "max_temperature_threshold",
-    "value": 85.0,
-    "updated_at": "2025-12-13T03:55:00Z",
-    "updated_by": "john.doe"
-  }
+    "status": "success",
+    "message": "Configuration updated successfully",
+    "updated_setting": {
+        "name": "max_temperature_threshold",
+        "value": 85.0,
+        "updated_at": "2025-12-13T03:55:00Z",
+        "updated_by": "john.doe"
+    }
 }
 ```
 
@@ -1808,24 +1820,28 @@ Dashboard receives success response and updates UI
 #### Security Best Practices
 
 **Token Security**
+
 - Use strong secret keys (256-bit minimum)
 - Short expiration times (15-60 minutes for access tokens)
 - Refresh tokens for long-lived sessions
 - Store tokens securely (httpOnly cookies for web)
 
 **Password Security**
+
 - Hash passwords with bcrypt/argon2
 - Enforce strong password policies
 - Implement rate limiting on login attempts
 - Use HTTPS for all authentication endpoints
 
 **RBAC Implementation**
+
 - Principle of least privilege
 - Regular permission audits
 - Granular permissions over broad roles
 - Audit logs for all sensitive actions
 
 **Token Refresh Flow**
+
 - Separate refresh tokens with longer expiration
 - Rotate refresh tokens on use
 - Revocation list for compromised tokens
@@ -1833,15 +1849,14 @@ Dashboard receives success response and updates UI
 
 **End of Part 2**
 
-
 ---
-
 
 ## Part 3: Best Practices & Scalability
 
 ### Question 3.1: Logging and Caching
 
 > **References:**
+>
 > - [Python Logging HOWTO](https://docs.python.org/3/howto/logging.html)
 > - [Redis Caching Patterns](https://redis.io/solutions/caching)
 
@@ -1855,26 +1870,26 @@ Provide an example of an effective logging structure (JSON/text format) to recor
 
 ```json
 {
-  "timestamp": "2025-12-13T04:10:15.123456Z",
-  "level": "DEBUG",
-  "logger": "app.routes.data_routes",
-  "message": "Payload validation successful",
-  "context": {
-    "endpoint": "/api/v1/data/ingest",
-    "method": "POST",
-    "request_id": "req-d1c2084b-f16a-4eea-89d9-4402095d3af5",
-    "client_ip": "192.168.1.100",
-    "user_agent": "Python/3.9 requests/2.31.0",
-    "validation": {
-      "schema": "IngestRequest",
-      "gateway_id": "gateway-001",
-      "batch_size": 5,
-      "total_readings": 25,
-      "validation_time_ms": 12.5
-    }
-  },
-  "trace_id": "trace-abc123",
-  "span_id": "span-def456"
+    "timestamp": "2025-12-13T04:10:15.123456Z",
+    "level": "DEBUG",
+    "logger": "app.routes.data_routes",
+    "message": "Payload validation successful",
+    "context": {
+        "endpoint": "/api/v1/data/ingest",
+        "method": "POST",
+        "request_id": "req-d1c2084b-f16a-4eea-89d9-4402095d3af5",
+        "client_ip": "192.168.1.100",
+        "user_agent": "Python/3.9 requests/2.31.0",
+        "validation": {
+            "schema": "IngestRequest",
+            "gateway_id": "gateway-001",
+            "batch_size": 5,
+            "total_readings": 25,
+            "validation_time_ms": 12.5
+        }
+    },
+    "trace_id": "trace-abc123",
+    "span_id": "span-def456"
 }
 ```
 
@@ -1882,30 +1897,30 @@ Provide an example of an effective logging structure (JSON/text format) to recor
 
 ```json
 {
-  "timestamp": "2025-12-13T04:10:20.789012Z",
-  "level": "WARNING",
-  "logger": "app.cache.redis_client",
-  "message": "Redis connection lost, initiating self-healing retry",
-  "context": {
-    "service": "redis",
-    "host": "localhost",
-    "port": 6379,
-    "error": "ConnectionError: Error 111 connecting to localhost:6379. Connection refused",
-    "retry_attempt": 1,
-    "max_retries": 3,
-    "retry_delay_seconds": 2,
-    "backoff_strategy": "exponential",
-    "cache_operation": "get_machine_metadata",
-    "machine_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
-    "fallback_action": "query_from_postgresql"
-  },
-  "trace_id": "trace-abc123",
-  "span_id": "span-ghi789",
-  "alert": {
-    "severity": "medium",
-    "notify": ["ops-team@factory.com"],
-    "runbook": "https://docs.factory.com/runbooks/redis-connection-loss"
-  }
+    "timestamp": "2025-12-13T04:10:20.789012Z",
+    "level": "WARNING",
+    "logger": "app.cache.redis_client",
+    "message": "Redis connection lost, initiating self-healing retry",
+    "context": {
+        "service": "redis",
+        "host": "localhost",
+        "port": 6379,
+        "error": "ConnectionError: Error 111 connecting to localhost:6379. Connection refused",
+        "retry_attempt": 1,
+        "max_retries": 3,
+        "retry_delay_seconds": 2,
+        "backoff_strategy": "exponential",
+        "cache_operation": "get_machine_metadata",
+        "machine_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
+        "fallback_action": "query_from_postgresql"
+    },
+    "trace_id": "trace-abc123",
+    "span_id": "span-ghi789",
+    "alert": {
+        "severity": "medium",
+        "notify": ["ops-team@factory.com"],
+        "runbook": "https://docs.factory.com/runbooks/redis-connection-loss"
+    }
 }
 ```
 
@@ -1913,46 +1928,46 @@ Provide an example of an effective logging structure (JSON/text format) to recor
 
 ```json
 {
-  "timestamp": "2025-12-13T04:10:25.345678Z",
-  "level": "ERROR",
-  "logger": "app.database.postgres",
-  "message": "Failed to persist data to PostgreSQL after 3 retry attempts",
-  "context": {
-    "service": "postgresql",
-    "database": "gonsters_db",
-    "host": "localhost",
-    "port": 5432,
-    "operation": "insert_machine_metadata",
-    "table": "machine_metadata",
-    "error": "OperationalError: (psycopg2.OperationalError) server closed the connection unexpectedly",
-    "error_code": "57P01",
-    "retry_attempts": 3,
-    "max_retries": 3,
-    "total_retry_duration_seconds": 15.7,
-    "data": {
-      "machine_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
-      "operation_type": "UPDATE",
-      "affected_rows": 0
+    "timestamp": "2025-12-13T04:10:25.345678Z",
+    "level": "ERROR",
+    "logger": "app.database.postgres",
+    "message": "Failed to persist data to PostgreSQL after 3 retry attempts",
+    "context": {
+        "service": "postgresql",
+        "database": "gonsters_db",
+        "host": "localhost",
+        "port": 5432,
+        "operation": "insert_machine_metadata",
+        "table": "machine_metadata",
+        "error": "OperationalError: (psycopg2.OperationalError) server closed the connection unexpectedly",
+        "error_code": "57P01",
+        "retry_attempts": 3,
+        "max_retries": 3,
+        "total_retry_duration_seconds": 15.7,
+        "data": {
+            "machine_id": "d1c2084b-f16a-4eea-89d9-4402095d3af5",
+            "operation_type": "UPDATE",
+            "affected_rows": 0
+        },
+        "request_id": "req-d1c2084b-f16a-4eea-89d9-4402095d3af5",
+        "user_id": "user-123",
+        "endpoint": "/api/v1/machines/update"
     },
-    "request_id": "req-d1c2084b-f16a-4eea-89d9-4402095d3af5",
-    "user_id": "user-123",
-    "endpoint": "/api/v1/machines/update"
-  },
-  "stack_trace": "Traceback (most recent call last):\n  File \"app/database/postgres.py\", line 45, in execute_with_retry\n    ...",
-  "trace_id": "trace-abc123",
-  "span_id": "span-jkl012",
-  "alert": {
-    "severity": "critical",
-    "notify": ["ops-team@factory.com", "dev-team@factory.com", "oncall@factory.com"],
-    "pagerduty": true,
-    "runbook": "https://docs.factory.com/runbooks/postgresql-persistence-failure",
-    "incident_id": "INC-2025-001234"
-  },
-  "metrics": {
-    "error_rate_last_5min": 0.05,
-    "database_connection_pool_size": 10,
-    "active_connections": 8
-  }
+    "stack_trace": "Traceback (most recent call last):\n  File \"app/database/postgres.py\", line 45, in execute_with_retry\n    ...",
+    "trace_id": "trace-abc123",
+    "span_id": "span-jkl012",
+    "alert": {
+        "severity": "critical",
+        "notify": ["ops-team@factory.com", "dev-team@factory.com", "oncall@factory.com"],
+        "pagerduty": true,
+        "runbook": "https://docs.factory.com/runbooks/postgresql-persistence-failure",
+        "incident_id": "INC-2025-001234"
+    },
+    "metrics": {
+        "error_rate_last_5min": 0.05,
+        "database_connection_pool_size": 10,
+        "active_connections": 8
+    }
 }
 ```
 
@@ -1968,11 +1983,11 @@ Provide an example of an effective logging structure (JSON/text format) to recor
 
 #### Key Contextual Information by Level
 
-| Level | Essential Context |
-|-------|------------------|
-| **DEBUG** | Request ID, endpoint, validation schema, performance metrics, data size |
-| **WARNING** | Service name, error details, retry information, fallback strategy, alert severity |
-| **ERROR** | Full error details, stack trace, retry history, affected data, incident tracking, metrics |
+| Level       | Essential Context                                                                         |
+| ----------- | ----------------------------------------------------------------------------------------- |
+| **DEBUG**   | Request ID, endpoint, validation schema, performance metrics, data size                   |
+| **WARNING** | Service name, error details, retry information, fallback strategy, alert severity         |
+| **ERROR**   | Full error details, stack trace, retry history, affected data, incident tracking, metrics |
 
 ---
 
@@ -1985,6 +2000,7 @@ Explain how you would use Redis for caching (e.g., machine metadata) to reduce t
 **Pattern Overview:**
 
 The Cache-Aside (Lazy Loading) pattern is implemented as follows:
+
 1.  Application checks Redis cache first.
 2.  If cache hit: return cached data.
 3.  If cache miss: query PostgreSQL, store in cache with TTL, return data.
@@ -2013,14 +2029,14 @@ def cache_response(timeout=300, key_prefix='view'):
             redis_client = get_redis_client()
             if not redis_client:
                 return f(*args, **kwargs)
-            
+
             # Create cache key
             # Uses path and query string to differentiate requests
             query = request.query_string.decode('utf-8')
             key = f"cache:{key_prefix}:{request.path}"
             if query:
                 key += f":{query}"
-            
+
             try:
                 # Check cache
                 cached_val = redis_client.get(key)
@@ -2028,41 +2044,41 @@ def cache_response(timeout=300, key_prefix='view'):
                     logger.debug(f"Cache HIT for {key}")
                     # Return cached JSON
                     return jsonify(json.loads(cached_val)), 200
-                
+
                 # Execute view function
                 response = f(*args, **kwargs)
-                
+
                 # Check if response is cacheable
                 # Typically Flask returns: (Response/dict, status_code)
                 # Or just Response object
-                
+
                 resp_obj = None
                 status = 200
-                
+
                 if isinstance(response, tuple):
                     resp_obj = response[0]
                     if len(response) > 1:
                         status = response[1]
                 else:
                     resp_obj = response
-                    
+
                 # Only cache 200 OK
                 if status == 200:
                     data = None
                     if isinstance(resp_obj, Response):
                         data = resp_obj.get_json()
-                    
+
                     if data:
                         redis_client.setex(key, timeout, json.dumps(data))
                         logger.debug(f"Cached response for {key}")
-                        
+
                 return response
-                
+
             except Exception as e:
                 logger.error(f"Cache error: {str(e)}")
                 # Fail gracefully, behave as if no cache
                 return f(*args, **kwargs)
-                
+
         return decorated_function
     return decorator
 ```
@@ -2096,8 +2112,6 @@ def create_machine():
     ...
 ```
 
-
-
 **Benefits:**
 
 - Reduces PostgreSQL load by 70-90% for frequently accessed data
@@ -2107,11 +2121,11 @@ def create_machine():
 
 **Cache Key Strategy:**
 
-| Data Type | Cache Key Pattern | TTL |
-|-----------|------------------|-----|
-| Machine Metadata | `machine:{machine_id}` | 1 hour |
-| User Profile | `user:{user_id}` | 30 minutes |
-| Configuration | `config:{setting_name}` | 5 minutes |
+| Data Type              | Cache Key Pattern                            | TTL        |
+| ---------------------- | -------------------------------------------- | ---------- |
+| Machine Metadata       | `machine:{machine_id}`                       | 1 hour     |
+| User Profile           | `user:{user_id}`                             | 30 minutes |
+| Configuration          | `config:{setting_name}`                      | 5 minutes  |
 | Sensor Data Aggregates | `sensor:{machine_id}:{interval}:{timestamp}` | 15 minutes |
 
 ---
@@ -2119,53 +2133,53 @@ def create_machine():
 ### Question 3.2: Containerization & CI/CD
 
 > **References:**
+>
 > - [Docker Best Practices](https://docs.docker.com/build/building/best-practices)
 > - [GitHub Actions Quickstart](https://docs.github.com/actions/quickstart)
 
 #### 1. Dockerfile (Multi-stage Build)
- 
- ```dockerfile
- FROM python:3.11-slim as builder
- 
- WORKDIR /build
- 
- RUN apt-get update && apt-get install -y --no-install-recommends \
-     gcc \
-     postgresql-client \
-     && rm -rf /var/lib/apt/lists/*
- 
- COPY requirements.txt .
- RUN pip install --no-cache-dir --user -r requirements.txt
- 
- FROM python:3.11-slim
- 
- WORKDIR /app
- 
- RUN apt-get update && apt-get install -y --no-install-recommends \
-     postgresql-client \
-     && rm -rf /var/lib/apt/lists/* \
-     && useradd -m -u 1000 appuser \
-     && chown -R appuser:appuser /app
- 
- COPY --chown=appuser:appuser --from=builder /root/.local /home/appuser/.local
- COPY --chown=appuser:appuser . .
- 
- USER appuser
- 
- ENV PATH=/home/appuser/.local/bin:$PATH
- ENV PYTHONUNBUFFERED=1
- ENV FLASK_APP=app
- 
- EXPOSE 5000
- 
- HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-     CMD python -c "import requests; requests.get('http://localhost:5000/health')" || exit 1
- 
- CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
- ```
- 
- ---
- 
+
+```dockerfile
+FROM python:3.11-slim as builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -u 1000 appuser \
+    && chown -R appuser:appuser /app
+
+COPY --chown=appuser:appuser --from=builder /root/.local /home/appuser/.local
+COPY --chown=appuser:appuser . .
+
+USER appuser
+
+ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_APP=app
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:5000/health')" || exit 1
+
+CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
+```
+
+---
 
 ### 2. GitHub Actions
 
@@ -2179,97 +2193,98 @@ Describe 3 critical steps (stages or jobs) that must be included in your GitHub 
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
+    push:
+        branches: [main, develop]
+    pull_request:
+        branches: [main]
 
 jobs:
-  test:
-    name: Code Quality & Testing
-    runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: gonsters_test_db
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      
-      influxdb:
-        image: influxdb:2.7
-        env:
-          DOCKER_INFLUXDB_INIT_MODE: setup
-          DOCKER_INFLUXDB_INIT_USERNAME: admin
-          DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword
-          DOCKER_INFLUXDB_INIT_ORG: gonsters
-          DOCKER_INFLUXDB_INIT_BUCKET: sensor_data
-          DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: testing-influx-token
-      
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-    
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-      
-      - name: Run linting
-        run: |
-          pip install flake8 black
-          flake8 app/ --max-line-length=120
-          black --check app/
-      
-      - name: Setup test database
-        run: |
-          # Create test database in the PostgreSQL service container
-          PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE gonsters_test_db;" || echo "Database may already exist"
-      
-      - name: Run tests
-        env:
-          FLASK_ENV: testing
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: gonsters_test_db
-          INFLUXDB_URL: http://localhost:8086
-          INFLUXDB_TOKEN: testing-influx-token
-          INFLUXDB_ORG: gonsters
-          INFLUXDB_BUCKET: sensor_data
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-          MQTT_BROKER: localhost
-          SECRET_KEY: testing-secret
-          JWT_SECRET_KEY: testing-jwt-secret
-          JWT_ALGORITHM: HS256
-        run: |
-          # Run tests directly with pytest using service containers
-          pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=xml
-      
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: true
+    test:
+        name: Code Quality & Testing
+        runs-on: ubuntu-latest
+
+        services:
+            postgres:
+                image: postgres:15
+                env:
+                    POSTGRES_PASSWORD: postgres
+                    POSTGRES_DB: gonsters_test_db
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+
+            influxdb:
+                image: influxdb:2.7
+                env:
+                    DOCKER_INFLUXDB_INIT_MODE: setup
+                    DOCKER_INFLUXDB_INIT_USERNAME: admin
+                    DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword
+                    DOCKER_INFLUXDB_INIT_ORG: gonsters
+                    DOCKER_INFLUXDB_INIT_BUCKET: sensor_data
+                    DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: testing-influx-token
+
+            redis:
+                image: redis:7-alpine
+                ports:
+                    - 6379:6379
+
+        steps:
+            - uses: actions/checkout@v3
+
+            - name: Set up Python
+              uses: actions/setup-python@v4
+              with:
+                  python-version: '3.11'
+                  cache: 'pip'
+
+            - name: Install dependencies
+              run: |
+                  pip install -r requirements.txt
+
+            - name: Run linting
+              run: |
+                  pip install flake8 black
+                  flake8 app/ --max-line-length=120
+                  black --check app/
+
+            - name: Setup test database
+              run: |
+                  # Create test database in the PostgreSQL service container
+                  PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE gonsters_test_db;" || echo "Database may already exist"
+
+            - name: Run tests
+              env:
+                  FLASK_ENV: testing
+                  POSTGRES_HOST: localhost
+                  POSTGRES_PORT: 5432
+                  POSTGRES_USER: postgres
+                  POSTGRES_PASSWORD: postgres
+                  POSTGRES_DB: gonsters_test_db
+                  INFLUXDB_URL: http://localhost:8086
+                  INFLUXDB_TOKEN: testing-influx-token
+                  INFLUXDB_ORG: gonsters
+                  INFLUXDB_BUCKET: sensor_data
+                  REDIS_HOST: localhost
+                  REDIS_PORT: 6379
+                  MQTT_BROKER: localhost
+                  SECRET_KEY: testing-secret
+                  JWT_SECRET_KEY: testing-jwt-secret
+                  JWT_ALGORITHM: HS256
+              run: |
+                  # Run tests directly with pytest using service containers
+                  pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=xml
+
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                  file: ./coverage.xml
+                  fail_ci_if_error: true
 ```
 
 **Why Critical:**
+
 - Ensures code quality standards (linting, formatting)
 - Validates all tests pass with 75%+ coverage threshold
 - Catches bugs before deployment
@@ -2278,39 +2293,40 @@ jobs:
 #### Step 2: Security Scanning Stage
 
 ```yaml
-  security:
+security:
     name: Security Scanning
     runs-on: ubuntu-latest
     needs: test
-    
+
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Run Bandit security scan
-        run: |
-          pip install bandit
-          bandit -r app/ -f json -o bandit-report.json
-      
-      - name: Check dependencies for vulnerabilities
-        run: |
-          pip install safety
-          safety check --json
-      
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-      
-      - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
+        - uses: actions/checkout@v3
+
+        - name: Run Bandit security scan
+          run: |
+              pip install bandit
+              bandit -r app/ -f json -o bandit-report.json
+
+        - name: Check dependencies for vulnerabilities
+          run: |
+              pip install safety
+              safety check --json
+
+        - name: Run Trivy vulnerability scanner
+          uses: aquasecurity/trivy-action@master
+          with:
+              scan-type: 'fs'
+              scan-ref: '.'
+              format: 'sarif'
+              output: 'trivy-results.sarif'
+
+        - name: Upload Trivy results to GitHub Security
+          uses: github/codeql-action/upload-sarif@v3
+          with:
+              sarif_file: 'trivy-results.sarif'
 ```
 
 **Why Critical:**
+
 - Identifies security vulnerabilities in code
 - Scans dependencies for known CVEs
 - Prevents deployment of insecure code
@@ -2319,58 +2335,58 @@ jobs:
 #### Step 3: Build & Deploy Stage
 
 ```yaml
-  deploy:
+deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
-      - uses: actions/checkout@v3
-      
-      # Deployment steps commented out - configure secrets to enable
-      # - name: Deploy to Production via SSH
-      #   uses: appleboy/ssh-action@v0.1.10
-      #   with:
-      #     host: ${{ secrets.SSH_HOST }}
-      #     username: ${{ secrets.SSH_USER }}
-      #     key: ${{ secrets.SSH_KEY }}
-      #     script: |
-      #       cd ${{ secrets.DEPLOY_PATH }}
-      #       git pull origin main
-      #       chmod +x scripts/run.sh
-      #       ./scripts/run.sh prod
-      
-      - name: Deployment placeholder
-        run: echo "Deploy stage passed - configure secrets to enable actual deployment"
+        - uses: actions/checkout@v3
+
+        # Deployment steps commented out - configure secrets to enable
+        # - name: Deploy to Production via SSH
+        #   uses: appleboy/ssh-action@v0.1.10
+        #   with:
+        #     host: ${{ secrets.SSH_HOST }}
+        #     username: ${{ secrets.SSH_USER }}
+        #     key: ${{ secrets.SSH_KEY }}
+        #     script: |
+        #       cd ${{ secrets.DEPLOY_PATH }}
+        #       git pull origin main
+        #       chmod +x scripts/run.sh
+        #       ./scripts/run.sh prod
+
+        - name: Deployment placeholder
+          run: echo "Deploy stage passed - configure secrets to enable actual deployment"
 ```
 
 **Why Critical:**
+
 - **Automated Delivery**: Eliminates manual server access
 - **Zero-Downtime Strategy**: `run.sh prod` handles image pulling and container replacement securely
 - **Consistency**: Uses the exact same Docker images built in the Build stage
 - **Security**: Uses SSH keys and Secrets, never exposing credentials in code
-
 
 ---
 
 ### Summary of CI/CD Pipeline
 
 1. **Test Stage**:
-   - Linting
-   - Unit Tests
-   - Coverage Check
+    - Linting
+    - Unit Tests
+    - Coverage Check
 
 2. **Security Stage**:
-   - Bandit Scan
-   - Safety Check
-   - Trivy Vulnerability Scan
+    - Bandit Scan
+    - Safety Check
+    - Trivy Vulnerability Scan
 
 3. **Deploy Stage**:
-   - Build Image
-   - Push to Registry
-   - Deploy via SSH
-   - Smoke Tests
+    - Build Image
+    - Push to Registry
+    - Deploy via SSH
+    - Smoke Tests
 
 **Pipeline Benefits:**
 

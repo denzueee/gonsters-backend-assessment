@@ -3,15 +3,15 @@ Modul Middleware untuk Autentikasi dan Otorisasi
 Mengelola decorator untuk proteksi endpoint dan RBAC
 """
 
-from functools import wraps
-from flask import request, jsonify, g
 import logging
+from functools import wraps
+
+from flask import g, jsonify, request
 
 from app.auth.jwt_handler import verify_token
 from app.database import get_db
 from app.database.redis import is_token_blacklisted
-from app.models import User, AuditLog
-
+from app.models import AuditLog, User
 
 logger = logging.getLogger(__name__)
 

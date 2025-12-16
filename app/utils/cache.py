@@ -1,7 +1,9 @@
 import json
 import logging
 from functools import wraps
-from flask import request, jsonify, Response
+
+from flask import Response, jsonify, request
+
 from app.database import get_redis_client
 
 logger = logging.getLogger(__name__)

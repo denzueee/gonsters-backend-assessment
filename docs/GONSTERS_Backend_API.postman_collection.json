@@ -45,15 +45,8 @@
                         },
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/auth/register",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "auth",
-                                "register"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "auth", "register"]
                         },
                         "description": "Mendaftarkan user baru ke sistem.\n\n**Roles**: Operator, Supervisor, Management"
                     },
@@ -100,15 +93,8 @@
                         },
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/auth/login",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "auth",
-                                "login"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "auth", "login"]
                         },
                         "description": "Login dan mendapatkan JWT access token & refresh token"
                     },
@@ -150,15 +136,8 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/auth/me",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "auth",
-                                "me"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "auth", "me"]
                         },
                         "description": "Mendapatkan informasi user yang sedang login"
                     },
@@ -199,15 +178,8 @@
                         },
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/auth/refresh",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "auth",
-                                "refresh"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "auth", "refresh"]
                         },
                         "description": "Refresh access token menggunakan refresh token"
                     },
@@ -230,15 +202,8 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/auth/logout",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "auth",
-                                "logout"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "auth", "logout"]
                         },
                         "description": "Logout user (client harus menghapus token)"
                     },
@@ -295,15 +260,8 @@
                         },
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/data/machine",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "data",
-                                "machine"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "data", "machine"]
                         },
                         "description": "Create new machine (Mgmt/Supervisor)"
                     },
@@ -344,15 +302,8 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/data/machines",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "data",
-                                "machines"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "data", "machines"]
                         },
                         "description": "List all machines"
                     },
@@ -403,15 +354,8 @@
                         },
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/data/ingest",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "data",
-                                "ingest"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "data", "ingest"]
                         },
                         "description": "Ingest data sensor secara batch dari gateway. \n\n**Format Body**:\n- `gateway_id`: ID Gateway pengirim\n- `timestamp`: Waktu pengiriman batch\n- `batch`: Array data mesin dan readings"
                     },
@@ -455,16 +399,8 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/data/machine/{{machine_id}}?start_time=2024-12-12T00:00:00Z&end_time=2025-12-14T23:59:59Z&aggregation_window=1h",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "data",
-                                "machine",
-                                "{{machine_id}}"
-                            ],
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "data", "machine", "{{machine_id}}"],
                             "query": [
                                 {
                                     "key": "start_time",
@@ -528,14 +464,8 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/config",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "config"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "config"]
                         },
                         "description": "Mengambil konfigurasi sistem\n\n**Required Permission**: read:config\n**Allowed Roles**: Management"
                     },
@@ -586,15 +516,8 @@
                         },
                         "url": {
                             "raw": "{{baseUrl}}/api/v1/config/update",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "config",
-                                "update"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "v1", "config", "update"]
                         },
                         "description": "Update konfigurasi sistem\n\n**Required Permission**: write:config\n**Allowed Roles**: Management only"
                     },
@@ -631,12 +554,8 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/health",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "health"
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": ["health"]
                         },
                         "description": "Cek kesehatan sistem"
                     },
@@ -649,12 +568,8 @@
                         "header": [],
                         "url": {
                             "raw": "{{baseUrl}}/",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                ""
-                            ]
+                            "host": ["{{baseUrl}}"],
+                            "path": [""]
                         },
                         "description": "Informasi API"
                     },
@@ -669,18 +584,14 @@
             "listen": "prerequest",
             "script": {
                 "type": "text/javascript",
-                "exec": [
-                    ""
-                ]
+                "exec": [""]
             }
         },
         {
             "listen": "test",
             "script": {
                 "type": "text/javascript",
-                "exec": [
-                    ""
-                ]
+                "exec": [""]
             }
         }
     ],

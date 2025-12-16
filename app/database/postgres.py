@@ -1,9 +1,10 @@
+import logging
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.pool import QueuePool
-from contextlib import contextmanager
-import logging
 
 from app.config import get_config
 
