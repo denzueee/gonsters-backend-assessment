@@ -92,7 +92,8 @@ def broadcast_alert(alert_data):
         alert_data: Dict berisi data alert
     """
     try:
-        socketio.emit('alert', alert_data, broadcast=True)
+        # Broadcast ke semua connected clients (room 'all_machines')
+        socketio.emit('alert', alert_data, room='all_machines')
         logger.info(f"Broadcasted alert: {alert_data.get('message', 'Unknown')}")
     except Exception as e:
         logger.error(f"Error broadcasting alert: {str(e)}")

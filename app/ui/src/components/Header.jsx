@@ -1,6 +1,6 @@
-import { Activity, LogOut, Moon, Sun, Clock } from 'lucide-react';
+import { Activity, LogOut, Moon, Sun, Clock, Settings } from 'lucide-react';
 
-export default function Header({ user, connected, darkMode, toggleDarkMode, onLogout }) {
+export default function Header({ user, connected, darkMode, toggleDarkMode, onLogout, onOpenSettings }) {
     const currentTime = new Date().toLocaleTimeString();
 
     return (
@@ -13,7 +13,7 @@ export default function Header({ user, connected, darkMode, toggleDarkMode, onLo
 
                 <div className="flex items-center gap-6">
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${connected ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
-                            'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                        'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
                         }`}>
                         <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
                         {connected ? 'Connected' : 'Disconnected'}
@@ -31,6 +31,17 @@ export default function Header({ user, connected, darkMode, toggleDarkMode, onLo
                     >
                         {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                     </button>
+
+                    {/* Settings Button - Only for Management role */}
+                    {user?.role === 'Management' && onOpenSettings && (
+                        <button
+                            onClick={onOpenSettings}
+                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400"
+                            title="System Settings"
+                        >
+                            <Settings className="w-5 h-5" />
+                        </button>
+                    )}
 
                     <div className="flex items-center gap-3 border-l border-gray-200 dark:border-gray-700 pl-6">
                         <div className="text-sm text-right">

@@ -47,6 +47,11 @@ def create_app(config_name=None):
             # Initialize InfluxDB
             init_influxdb()
             logger.info("InfluxDB initialized")
+            
+            # Initialize default system configuration
+            from app.routes.config_routes import initialize_default_config
+            initialize_default_config()
+            logger.info("System configuration initialized")
 
         except Exception as e:
             logger.error(f"Failed to initialize databases: {str(e)}")

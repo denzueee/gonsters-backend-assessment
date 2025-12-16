@@ -12,6 +12,7 @@ import AlertPanel from '../components/AlertPanel';
 import AddMachineModal from '../components/AddMachineModal';
 import IngestDataModal from '../components/IngestDataModal';
 import MachineHistoryModal from '../components/MachineHistoryModal';
+import ConfigSettingsModal from '../components/ConfigSettingsModal';
 
 export default function Dashboard() {
     const [machines, setMachines] = useState([]);
@@ -28,6 +29,7 @@ export default function Dashboard() {
     const [showAddMachine, setShowAddMachine] = useState(false);
     const [showIngestData, setShowIngestData] = useState(false);
     const [showMachineHistory, setShowMachineHistory] = useState(false);
+    const [showConfigSettings, setShowConfigSettings] = useState(false);
 
     const { connected, sensorData } = useWebSocket();
     const { user, logout } = useAuth();
@@ -180,6 +182,7 @@ export default function Dashboard() {
                 darkMode={darkMode}
                 toggleDarkMode={toggleDarkMode}
                 onLogout={handleLogout}
+                onOpenSettings={() => setShowConfigSettings(true)}
             />
 
             <div className="flex">
@@ -280,6 +283,11 @@ export default function Dashboard() {
                 show={showMachineHistory}
                 onClose={() => setShowMachineHistory(false)}
                 machine={selectedMachine}
+            />
+
+            <ConfigSettingsModal
+                show={showConfigSettings}
+                onClose={() => setShowConfigSettings(false)}
             />
         </div>
     );

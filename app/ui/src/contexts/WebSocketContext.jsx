@@ -68,8 +68,12 @@ export const WebSocketProvider = ({ children }) => {
         }
     };
 
+    const clearAlerts = () => {
+        setAlerts([]);
+    };
+
     return (
-        <WebSocketContext.Provider value={{ socket, connected, sensorData, alerts, subscribeMachine }}>
+        <WebSocketContext.Provider value={{ socket, connected, sensorData, alerts, subscribeMachine, clearAlerts }}>
             {children}
         </WebSocketContext.Provider>
     );

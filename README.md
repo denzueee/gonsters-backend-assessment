@@ -103,6 +103,7 @@ Database migrations run automatically on container start. To run manually:
 ```bash
 docker exec -i gonsters-postgres psql -U postgres -d gonsters_db < migrations/init_db.sql
 docker exec -i gonsters-postgres psql -U postgres -d gonsters_db < migrations/create_users_table.sql
+docker exec -i gonsters-postgres psql -U postgres -d gonsters_db < migrations/create_system_config_table.sql
 ```
 
 ## API Endpoints
