@@ -1116,11 +1116,11 @@ def ingest_data():
 This RESTful API design provides:
 
 **Efficient Batch Ingestion**: Reduces HTTP overhead with batch processing
- **Flexible Retrieval**: Supports raw data and multiple aggregation intervals
- **Robust Validation**: Multi-level validation with detailed error messages
- **Scalability**: Supports async processing for large batches
- **Monitoring**: Comprehensive logging and error tracking
- **Industry Standards**: ISO 8601 timestamps, RESTful conventions, proper HTTP status codes
+**Flexible Retrieval**: Supports raw data and multiple aggregation intervals
+**Robust Validation**: Multi-level validation with detailed error messages
+**Scalability**: Supports async processing for large batches
+**Monitoring**: Comprehensive logging and error tracking
+**Industry Standards**: ISO 8601 timestamps, RESTful conventions, proper HTTP status codes
 
 The implementation is production-ready and follows best practices for industrial IoT data platforms.
 

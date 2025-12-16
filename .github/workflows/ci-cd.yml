@@ -204,4 +204,3 @@ jobs:
 
       - name: Deployment placeholder
         run: echo "Deploy stage passed - configure secrets to enable actual deployment"
-
