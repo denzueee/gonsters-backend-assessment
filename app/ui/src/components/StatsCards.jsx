@@ -16,18 +16,18 @@ export default function StatsCards({ machines }) {
     ];
 
     return (
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
             {cards.map((card, idx) => {
                 const Icon = card.icon;
                 return (
-                    <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+                    <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 lg:p-6 border border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-between">
                             <div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">{card.label}</div>
-                                <div className={`text-3xl font-bold mt-2 ${card.color}`}>{card.value}</div>
+                                <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-400">{card.label}</div>
+                                <div className={`text-2xl lg:text-3xl font-bold mt-1 lg:mt-2 ${card.color}`}>{card.value}</div>
                             </div>
-                            <div className={`p-3 rounded-lg ${card.bg}`}>
-                                <Icon className={`w-6 h-6 ${card.color}`} />
+                            <div className={`p-2 lg:p-3 rounded-lg ${card.bg}`}>
+                                <Icon className={`w-5 h-5 lg:w-6 lg:h-6 ${card.color}`} />
                             </div>
                         </div>
                     </div>

@@ -6,7 +6,6 @@ export default function Sidebar({ machines, selectedMachine, onSelectMachine, on
     const [statusFilter, setStatusFilter] = useState('all');
     const [locationFilter, setLocationFilter] = useState('all');
 
-    // Observer for infinite scroll
     const observer = useRef();
     const lastMachineRef = useCallback(node => {
         if (loadingMore) return;
@@ -62,7 +61,7 @@ export default function Sidebar({ machines, selectedMachine, onSelectMachine, on
     };
 
     return (
-        <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-screen overflow-y-auto">
+        <div className="w-full h-full bg-white dark:bg-gray-800 overflow-y-auto">
             <div className="p-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                     Machines ({filteredMachines.length})
@@ -84,7 +83,7 @@ export default function Sidebar({ machines, selectedMachine, onSelectMachine, on
                 <div className="mb-3">
                     <div className="flex items-center gap-2 mb-2">
                         <Filter className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</span>
                     </div>
                     <select
                         value={statusFilter}
@@ -100,7 +99,7 @@ export default function Sidebar({ machines, selectedMachine, onSelectMachine, on
 
                 {/* Location Filter */}
                 <div className="mb-4">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Location</label>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Location</span>
                     <select
                         value={locationFilter}
                         onChange={(e) => handleLocationChange(e.target.value)}
@@ -116,7 +115,6 @@ export default function Sidebar({ machines, selectedMachine, onSelectMachine, on
                 {/* Machine List */}
                 <div className="space-y-2">
                     {filteredMachines.map((machine, index) => {
-                        // Apply ref to the last element
                         const isLast = index === filteredMachines.length - 1;
                         return (
                             <button

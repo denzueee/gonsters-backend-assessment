@@ -7,6 +7,9 @@ export default {
     darkMode: 'class',
     theme: {
         extend: {
+            screens: {
+                'wide': '1600px',
+            },
             colors: {
                 primary: {
                     50: '#f0f9ff',
