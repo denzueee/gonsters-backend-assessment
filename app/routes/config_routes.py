@@ -23,6 +23,7 @@ DEFAULT_CONFIG = {
     "max_temperature_threshold": "80.0",
     "min_temperature_threshold": "50.0",
     "max_pressure_threshold": "150.0",
+    "inactivity_timeout": "3600",
     "alert_email": "alerts@factory.com",
     "data_retention_days": "365",
 }
@@ -167,11 +168,12 @@ def update_config():
                 400,
             )
 
+        updated_at_str = None
+        old_value = None
+
         with get_db() as db:
             # Find existing config
             config = db.query(SystemConfig).filter(SystemConfig.setting_name == config_request.setting_name).first()
-
-            old_value = None
 
             if config:
                 # Update existing
@@ -189,41 +191,45 @@ def update_config():
                 db.add(config)
 
             db.commit()
+            db.refresh(config)
 
-            # Log audit
-            log_audit(
-                user=user, action="UPDATE_CONFIG", resource="/api/v1/config/update", method="POST", status_code=200
+            # Capture timestamp immediately while session is active
+            updated_at_str = (
+                config.updated_at.isoformat()
+                if hasattr(config.updated_at, "isoformat")
+                else str(config.updated_at)
             )
 
-            logger.info(
-                f"Config updated by {user.username}: "
-                f"{config_request.setting_name} = {config_request.setting_value} "
-                f"(was: {old_value})"
-            )
+        # Log audit
+        log_audit(
+            user=user, action="UPDATE_CONFIG", resource="/api/v1/config/update", method="POST", status_code=200
+        )
 
-            # Invalidate cache
-            invalidate_cache("cache:config:*")
+        logger.info(
+            f"Config updated by {user.username}: "
+            f"{config_request.setting_name} = {config_request.setting_value} "
+            f"(was: {old_value})"
+        )
 
-            return (
-                jsonify(
-                    {
-                        "status": "success",
-                        "message": "Configuration updated successfully",
-                        "updated_setting": {
-                            "name": config_request.setting_name,
-                            "old_value": old_value,
-                            "new_value": config_request.setting_value,
-                            "updated_by": user.username,
-                            "updated_at": (
-                                config.updated_at.isoformat()
-                                if hasattr(config.updated_at, "isoformat")
-                                else str(config.updated_at)
-                            ),
-                        },
-                    }
-                ),
-                200,
-            )
+        # Invalidate cache
+        invalidate_cache("cache:config:*")
+
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "message": "Configuration updated successfully",
+                    "updated_setting": {
+                        "name": config_request.setting_name,
+                        "old_value": old_value,
+                        "new_value": config_request.setting_value,
+                        "updated_by": user.username,
+                        "updated_at": updated_at_str,
+                    },
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Config update error: {str(e)}")
